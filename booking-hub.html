@@ -548,6 +548,7 @@
     .tc-sig-input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:9px;font-family:'Jost',sans-serif;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:14px;background:var(--sand);}
     .tc-sig-input:focus{border-color:var(--teal);}
     .tn-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-left:6px;vertical-align:middle;}
+  @keyframes cbPulse{0%,100%{opacity:1}50%{opacity:.3}}
   </style>
 </head>
 <body>
@@ -1408,9 +1409,22 @@
 <div class="tip" id="tip"></div>
 <div class="toast" id="toast"></div>
 
+<div id="cbSyncBadge" style="display:none;position:fixed;bottom:18px;right:18px;z-index:9999;background:#1a2332;color:#fff;border-radius:10px;padding:8px 14px;font-size:12px;font-family:'Jost',sans-serif;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:none;transition:opacity .3s;">
+  <span id="cbSyncDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;flex-shrink:0;display:inline-block;"></span>
+  <span id="cbSyncMsg">Cloudbeds</span>
+</div>
+
 <script>
 // ===== SHARED CONSTANTS =====
 const RT_VERSION='7';
+
+// ===== CLOUDBEDS INTEGRATION =====
+const CLOUDBEDS_PROXY='/.netlify/functions/cloudbeds';
+let cbSyncing=false;
+let cbLastSync=null;
+let cbRoomLookup={};  // { roomName → Cloudbeds roomID }
+let cbAvailCache={};  // { roomName → ['YYYY-MM-DD', ...] }
+
 const STATUS={
   requested:      {label:'Requested Dates', bg:'#f3f4f6',border:'#9ca3af',text:'#374151',dash:true},
   contract_sent:  {label:'Contract Sent',   bg:'#fef9c3',border:'#fcd34d',text:'#854d0e',dash:true},
@@ -1502,6 +1516,131 @@ function saveAll(){
   localStorage.setItem('amansala_rt_version',    RT_VERSION);
 }
 
+// ===== CLOUDBEDS SYNC =====
+function setSyncStatus(state,msg){
+  const badge=document.getElementById('cbSyncBadge');
+  const dot=document.getElementById('cbSyncDot');
+  const label=document.getElementById('cbSyncMsg');
+  if(!badge)return;
+  badge.style.display='flex';
+  if(state==='syncing'){
+    dot.style.background='#f59e0b';dot.style.animation='cbPulse 1s infinite';
+    label.textContent='Syncing with Cloudbeds…';badge.style.opacity='1';
+  }else if(state==='ok'){
+    dot.style.background='#22c55e';dot.style.animation='';
+    label.textContent='Cloudbeds synced';badge.style.opacity='1';
+    setTimeout(()=>{badge.style.opacity='0';},3000);
+    setTimeout(()=>{badge.style.display='none';},3400);
+  }else if(state==='error'){
+    dot.style.background='#ef4444';dot.style.animation='';
+    label.textContent='Cloudbeds offline — usando datos locales';badge.style.opacity='1';
+    badge.title=msg||'';
+  }
+}
+
+async function syncAllFromCloudbeds(){
+  if(cbSyncing)return;
+  cbSyncing=true;setSyncStatus('syncing');
+  try{
+    await syncRoomTypesFromCloudbeds();
+    await syncRatesFromCloudbeds();
+    cbLastSync=new Date().toISOString();
+    setSyncStatus('ok');
+    const activeTab=document.querySelector('.tab-btn.active');
+    if(activeTab&&activeTab.dataset.tab==='roomcal'){
+      const end=fmtISO(addDays(rcStart,rcShowDays));
+      syncAvailabilityFromCloudbeds(fmtISO(rcStart),end).catch(e=>console.warn('[CB avail]',e));
+    }
+  }catch(err){
+    console.warn('[CB sync failed]',err);
+    setSyncStatus('error',err.message);
+  }finally{cbSyncing=false;}
+}
+
+async function syncRoomTypesFromCloudbeds(){
+  const res=await fetch(`${CLOUDBEDS_PROXY}?action=getRooms`);
+  if(!res.ok)throw new Error(`getRooms HTTP ${res.status}`);
+  const data=await res.json();
+  if(data.error)throw new Error(data.error);
+  if(data.roomLookup)cbRoomLookup=data.roomLookup;
+  (data.roomTypes||[]).forEach(cbRt=>{
+    const existing=roomTypes.find(rt=>rt.name.toLowerCase().trim()===cbRt.name.toLowerCase().trim());
+    if(existing){
+      existing.rooms=cbRt.rooms;existing.maxOcc=cbRt.maxOcc;
+      if(cbRt.color&&cbRt.color!=='#607D8B')existing.color=cbRt.color;
+      existing.cbId=cbRt.id;
+    }else{
+      roomTypes.push({...cbRt});
+    }
+  });
+  saveAll();
+  if(document.getElementById('rcBody'))rcBuild();
+}
+
+async function syncRatesFromCloudbeds(){
+  const res=await fetch(`${CLOUDBEDS_PROXY}?action=getRates`);
+  if(!res.ok)throw new Error(`getRates HTTP ${res.status}`);
+  const data=await res.json();
+  if(data.error)throw new Error(data.error);
+  const rates=data.rates||{};
+  roomTypes.forEach(rt=>{
+    const r=rates[rt.cbId];if(!r)return;
+    if(r.price1)rt.price1=r.price1;if(r.price2)rt.price2=r.price2;
+    if(r.price1_low)rt.price1_low=r.price1_low;if(r.price2_low)rt.price2_low=r.price2_low;
+  });
+  saveAll();
+}
+
+async function syncAvailabilityFromCloudbeds(start,end){
+  const res=await fetch(`${CLOUDBEDS_PROXY}?action=getAvailability&start=${start}&end=${end}`);
+  if(!res.ok)throw new Error(`getAvailability HTTP ${res.status}`);
+  const data=await res.json();
+  if(data.error)throw new Error(data.error);
+  cbAvailCache=data.unavailable||{};
+  if(document.getElementById('rcBody'))rcBuild();
+}
+
+async function pushReservationsToCloudbeds(bk){
+  if(!bk.blockedRooms||!bk.blockedRooms.length)return;
+  if(!bk.cbReservationIds)bk.cbReservationIds={};
+  await Promise.all(bk.blockedRooms.map(async roomName=>{
+    if(bk.cbReservationIds[roomName])return;
+    try{
+      const res=await fetch(`${CLOUDBEDS_PROXY}?action=createReservation`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          roomName,startDate:bk.startDate,endDate:bk.endDate,
+          groupName:bk.retreatName||bk.row||'',leaderName:bk.leaderName||'',adults:2
+        })
+      });
+      if(!res.ok)throw new Error(`HTTP ${res.status}`);
+      const d=await res.json();
+      if(d.error)throw new Error(d.error);
+      if(d.reservationId)bk.cbReservationIds[roomName]=d.reservationId;
+    }catch(err){console.warn(`[CB block] ${roomName}: ${err.message}`);}
+  }));
+  saveAll();
+}
+
+async function cancelCloudbedReservations(bk){
+  if(!bk||!bk.cbReservationIds)return;
+  const ids=Object.values(bk.cbReservationIds).filter(Boolean);
+  if(!ids.length)return;
+  try{
+    await fetch(`${CLOUDBEDS_PROXY}?action=cancelReservation`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({reservationId:ids[0]})
+    });
+    // Cancel remaining ones sequentially
+    for(let i=1;i<ids.length;i++){
+      fetch(`${CLOUDBEDS_PROXY}?action=cancelReservation`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({reservationId:ids[i]})
+      }).catch(e=>console.warn('[CB cancel]',e));
+    }
+  }catch(e){console.warn('[CB cancel all]',e);}
+}
+
 function exportData(){
   const data={
     exportedAt:new Date().toISOString(),
@@ -1590,7 +1729,7 @@ function switchTab(id,btn){
   btn.classList.add('active');
   if(id==='dashboard') buildDashboard();
   if(id==='venues')    venBuild();
-  if(id==='roomcal')   rcBuild();
+  if(id==='roomcal'){rcBuild();syncAvailabilityFromCloudbeds(fmtISO(rcStart),fmtISO(addDays(rcStart,rcShowDays))).catch(e=>console.warn('[CB avail]',e));}
   if(id==='teacherreg'){regInitSel();regRender();}
   if(id==='builder')   bldInitTab();
   if(id==='datefinder') dfInit();
@@ -1998,7 +2137,13 @@ function openVenEdit(id){const bk=bookings.find(b=>b.id===id);if(!bk)return;venE
   document.getElementById('venAddMoreBtn').style.display=hasRooms?'inline-flex':'none';
   document.getElementById('vm-leader').value=bk.leaderName||'';document.getElementById('vm-retreat').value=bk.retreatName||'';document.getElementById('vm-email').value=bk.leaderEmail||'';document.getElementById('vm-phone').value=bk.leaderPhone||'';document.getElementById('vm-start').value=bk.startDate||'';document.getElementById('vm-end').value=bk.endDate||'';document.getElementById('vm-pax').value=bk.pax||'';document.getElementById('vm-status').value=bk.status||'requested';document.getElementById('vm-notes').value=bk.notes||'';document.getElementById('vm-doc-link').value=bk.docLink||'';document.getElementById('vm-row').innerHTML=venRows.map(r=>`<option value="${r}"${r===bk.row?' selected':''}>${r}</option>`).join('');renderVmPaymentWidget(bk);openModal('venModal');}
 function venSave(){const lead=document.getElementById('vm-leader').value.trim(),ret=document.getElementById('vm-retreat').value.trim(),leaderEmail=document.getElementById('vm-email').value.trim(),leaderPhone=document.getElementById('vm-phone').value.trim(),start=document.getElementById('vm-start').value,end=document.getElementById('vm-end').value,row=document.getElementById('vm-row').value,pax=parseInt(document.getElementById('vm-pax').value)||0,status=document.getElementById('vm-status').value,notes=document.getElementById('vm-notes').value.trim(),docLink=document.getElementById('vm-doc-link').value.trim();if(!lead&&!ret){alert('Enter a leader or retreat name.');return;}if(!start||!end){alert('Select dates.');return;}if(start>end){alert('Departure must be after arrival.');return;}const effectiveRow=notes.toLowerCase().includes('chica')?'CHICA':row;if(venEditId){const bk=bookings.find(b=>b.id===venEditId);Object.assign(bk,{leaderName:lead,retreatName:ret,leaderEmail,leaderPhone,startDate:start,endDate:end,row:effectiveRow,pax,status,notes,docLink});}else{bookings.push({id:uid(),leaderName:lead,retreatName:ret,leaderEmail,leaderPhone,startDate:start,endDate:end,row:effectiveRow,pax,status,notes,docLink,roomAssignments:[]});}const savedBkId=venEditId||(bookings[bookings.length-1]?.id);const savedName=lead||ret;saveAll();closeModal('venModal');venBuild();logActivity(venEditId?'Booking updated':'Booking created',`${savedName} · ${fmtDate(start)} – ${fmtDate(end)}`,savedBkId);showToast(venEditId?'Updated.':'Booking added.');}
-function venDelete(){if(!venEditId||!confirm('Delete this booking?'))return;bookings=bookings.filter(b=>b.id!==venEditId);saveAll();closeModal('venModal');venBuild();showToast('Deleted.');}
+function venDelete(){
+  if(!venEditId||!confirm('Delete this booking?'))return;
+  const bkToDel=bookings.find(b=>b.id===venEditId);
+  if(bkToDel)cancelCloudbedReservations(bkToDel).catch(e=>console.warn('[CB cancel]',e));
+  bookings=bookings.filter(b=>b.id!==venEditId);
+  saveAll();closeModal('venModal');venBuild();showToast('Deleted.');
+}
 
 function venAddMoreRooms(){
   closeModal('venModal');
@@ -2334,6 +2479,24 @@ function rcBuild(){
         for(let i=Math.max(0,li);i<Math.min(rcShowDays,li+wi);i++)occupied[i]++;
       });
 
+      // Cloudbeds overlay: external blocks not present in local bookings
+      (cbAvailCache[room]||[]).forEach(dateStr=>{
+        const dayMs=pd(dateStr).getTime();
+        if(dayMs<startMs||dayMs>=startMs+rcShowDays*DAY_MS)return;
+        const alreadyLocal=bookings.some(bk=>
+          bk.status!=='cancelled'&&(bk.blockedRooms||[]).includes(room)&&
+          pd(bk.startDate).getTime()<=dayMs&&pd(bk.endDate).getTime()>dayMs
+        );
+        if(alreadyLocal)return;
+        const li=Math.round((dayMs-startMs)/DAY_MS);
+        const el=document.createElement('div');el.className='bk';
+        el.style.cssText=`left:${li*36+2}px;width:32px;top:5px;height:34px;`
+          +`background:#f1f5f9;border-left:4px solid #94a3b8;border-radius:4px;`
+          +`font-size:9px;color:#475569;display:flex;align-items:center;justify-content:center;pointer-events:none;`;
+        el.title=`Cloudbeds: ${dateStr}`;el.textContent='CB';
+        track.appendChild(el);
+      });
+
       rr.appendChild(track);body.appendChild(rr);
     });
   });
@@ -2371,10 +2534,10 @@ function rcMoveRoom(bkId,fromRoom,toRoom){
   saveAll();rcBuild();showToast(`Moved ${fromRoom} → ${toRoom}`);
 }
 
-function rcShift(n){rcStart=addDays(rcStart,n);rcBuild();}
-function rcGoToday(){rcStart=new Date();rcStart.setHours(0,0,0,0);rcBuild();}
-function rcOnStart(){const v=document.getElementById('rcStartInput').value;if(v)rcStart=pd(v);rcBuild();}
-function rcOnShow(){rcShowDays=parseInt(document.getElementById('rcShowSel').value);rcBuild();}
+function rcShift(n){rcStart=addDays(rcStart,n);rcBuild();syncAvailabilityFromCloudbeds(fmtISO(rcStart),fmtISO(addDays(rcStart,rcShowDays))).catch(e=>console.warn('[CB avail]',e));}
+function rcGoToday(){rcStart=new Date();rcStart.setHours(0,0,0,0);rcBuild();syncAvailabilityFromCloudbeds(fmtISO(rcStart),fmtISO(addDays(rcStart,rcShowDays))).catch(e=>console.warn('[CB avail]',e));}
+function rcOnStart(){const v=document.getElementById('rcStartInput').value;if(v)rcStart=pd(v);rcBuild();syncAvailabilityFromCloudbeds(fmtISO(rcStart),fmtISO(addDays(rcStart,rcShowDays))).catch(e=>console.warn('[CB avail]',e));}
+function rcOnShow(){rcShowDays=parseInt(document.getElementById('rcShowSel').value);rcBuild();syncAvailabilityFromCloudbeds(fmtISO(rcStart),fmtISO(addDays(rcStart,rcShowDays))).catch(e=>console.warn('[CB avail]',e));}
 
 // ===== TEACHER REGISTRATION =====
 function regInitSel(){
@@ -3036,6 +3199,10 @@ function blockSave(){
   closeModal('blockModal');
   regRender();
   showToast(`${bk.blockedRooms.length} rooms blocked for this retreat.`);
+  pushReservationsToCloudbeds(bk).catch(err=>{
+    console.warn('[CB createReservation]',err);
+    showToast('Habitaciones guardadas. Error al sincronizar con Cloudbeds.');
+  });
 }
 
 // Guest modal
@@ -4761,6 +4928,7 @@ function toggleStaffActive(id){
 
 // ===== INIT =====
 loadAll();
+syncAllFromCloudbeds().catch(err=>console.warn('[CB init]',err));
 loadBuilds();
 loadAdminDone();
 seedDemo();
