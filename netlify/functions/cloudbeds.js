@@ -70,8 +70,14 @@ exports.handler = async (event) => {
   }
 };
 
-// ─── OAuth2 token (client_credentials, cached) ───────────────────────────────
+// ─── Auth: supports static API key OR OAuth2 client_credentials ──────────────
 async function getToken() {
+  // Static API key path (format: live1_PROPERTYID_KEY) — no exchange needed
+  if (process.env.CLOUDBEDS_API_KEY) {
+    return process.env.CLOUDBEDS_API_KEY;
+  }
+
+  // OAuth2 client_credentials path
   const now = Date.now();
   if (_token && _token.expires_at_ms > now + 60_000) return _token.access_token;
 
