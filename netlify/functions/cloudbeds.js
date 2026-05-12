@@ -230,7 +230,7 @@ async function getAvailability(tok, start, end) {
 }
 
 async function createReservation(tok, body) {
-  const { roomName, startDate, endDate, groupName, leaderName, adults } = body;
+  const { roomName, startDate, endDate, groupName, leaderName, adults, guestFullName } = body;
   if (!roomName || !startDate || !endDate)
     throw new Error("roomName, startDate, endDate are required");
 
@@ -246,9 +246,11 @@ async function createReservation(tok, body) {
     throw new Error(`Room not found in lookup: ${roomName}. Known rooms: ${known}`);
   }
 
-  const nameParts = (groupName || leaderName || "Group Amansala").trim().split(/\s+/);
-  const firstName = nameParts[0];
-  const lastName  = nameParts.slice(1).join(" ") || "Amansala";
+  // firstName = guest full name (or retreat name if no guest assigned)
+  // lastName  = retreat/group name always (for easy filtering in Cloudbeds)
+  const retreatName = (groupName || leaderName || "Amansala").trim();
+  const firstName   = (guestFullName || retreatName).trim() || "Guest";
+  const lastName    = retreatName || "Amansala";
 
   const form = new URLSearchParams();
   form.append("propertyID",     process.env.CLOUDBEDS_PROPERTY_ID);
@@ -310,14 +312,15 @@ async function updateReservationGuest(tok, body) {
   const cancelRes = await cancelReservation(tok, reservationId);
   console.log("[CB updateGuest] cancel:", cancelRes.success ? "ok" : "skipped");
 
-  // Create new reservation with guest name, linked to the same group
+  // Create new reservation: firstName = guest name, lastName = retreat name
   const newRes = await createReservation(tok, {
     roomName,
     startDate,
     endDate,
-    groupName:  `${guestFirstName || ""} ${guestLastName || ""}`.trim() || groupName,
-    leaderName: leaderName || "",
-    adults:     1,
+    groupName:    groupName || "",
+    leaderName:   leaderName || "",
+    guestFullName: `${guestFirstName || ""} ${guestLastName || ""}`.trim(),
+    adults:       1,
   });
 
   return {
