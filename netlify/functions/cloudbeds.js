@@ -71,26 +71,24 @@ exports.handler = async (event) => {
   }
 };
 
-// ─── Auth: OAuth2 authorization_code with refresh_token ──────────────────────
+// ─── Auth: API key as Bearer token (v1.3 preferred method) ───────────────────
 async function getToken() {
   // Use cached token if still valid
   const now = Date.now();
   if (_token && _token.expires_at_ms > now + 60_000) return _token.access_token;
 
-  const clientId     = process.env.CLOUDBEDS_CLIENT_ID     || "";
-  const clientSecret = process.env.CLOUDBEDS_CLIENT_SECRET || "";
+  // API key path — use CLOUDBEDS_CLIENT_ID directly as Bearer token
+  const clientId = process.env.CLOUDBEDS_CLIENT_ID || "";
+  if (clientId) return clientId;
+
+  // OAuth2 refresh_token fallback
   const refreshToken = process.env.CLOUDBEDS_REFRESH_TOKEN || "";
+  if (!refreshToken) throw new Error("No Cloudbeds credentials configured.");
 
-  if (!refreshToken) throw new Error(
-    "CLOUDBEDS_REFRESH_TOKEN not set. Complete OAuth2 setup at " +
-    "/.netlify/functions/cloudbeds-setup"
-  );
-
-  // Exchange refresh_token for new access_token
   const body = new URLSearchParams({
     grant_type:    "refresh_token",
     client_id:     clientId,
-    client_secret: clientSecret,
+    client_secret: process.env.CLOUDBEDS_CLIENT_SECRET || "",
     refresh_token: refreshToken,
   }).toString();
 
