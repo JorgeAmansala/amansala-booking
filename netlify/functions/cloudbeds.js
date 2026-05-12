@@ -5,8 +5,8 @@ const { request } = require("https");
 let _token     = null; // { access_token, expires_at_ms }
 let _roomLookup = {};  // { roomName → Cloudbeds roomID }
 
-const CB_BASE   = "https://api.cloudbeds.com/api/v1.3";
-const CB_OAUTH  = "https://api.cloudbeds.com/api/v1.3/oauth";
+const CB_BASE   = "https://hotels.cloudbeds.com/api/v1.2";
+const CB_OAUTH  = "https://hotels.cloudbeds.com/api/v1.2/oauth";
 
 // Preserve existing hub colors when mapping Cloudbeds room type names
 const COLOR_MAP = {
@@ -243,19 +243,18 @@ async function cancelReservation(tok, reservationId) {
 
 function cbGet(tok, path, params = {}) {
   const qs = new URLSearchParams({
-    propertyID:   process.env.CLOUDBEDS_PROPERTY_ID,
-    access_token: tok,
+    propertyID: process.env.CLOUDBEDS_PROPERTY_ID,
     ...params,
   }).toString();
   return httpJSON("GET", `${CB_BASE}${path}?${qs}`, null, {
+    "x-api-key":   tok,
     Authorization: `Bearer ${tok}`,
   });
 }
 
 function cbPost(tok, path, formBody) {
-  // Append access_token to body as well for Cloudbeds compatibility
-  const fullBody = formBody + `&access_token=${encodeURIComponent(tok)}`;
-  return httpJSON("POST", `${CB_BASE}${path}`, fullBody, {
+  return httpJSON("POST", `${CB_BASE}${path}`, formBody, {
+    "x-api-key":    tok,
     Authorization:  `Bearer ${tok}`,
     "Content-Type": "application/x-www-form-urlencoded",
   });
