@@ -312,15 +312,23 @@ async function updateReservationGuest(tok, body) {
   const retreatName = (groupName || leaderName || "Amansala").trim();
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
+  // Fetch guestID from the reservation, then update via putGuest
+  const resInfo = await cbGet(tok, "/getReservation", { reservationID: reservationId });
+  const guestId = (resInfo.data || {}).guestID;
+
+  if (!guestId) {
+    return { success: false, error: "guestID not found", raw: resInfo, reservationId };
+  }
+
   const form = new URLSearchParams({
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
-    reservationID:  reservationId,
+    guestID:        guestId,
     guestFirstName: firstName,
     guestLastName:  retreatName,
   }).toString();
 
-  const res = await cbPost(tok, "/putReservation", form);
-  return { success: !!(res.success || res.status), raw: res, reservationId };
+  const res = await cbPost(tok, "/putGuest", form);
+  return { success: !!(res.success || res.status), raw: res, reservationId, guestId };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────

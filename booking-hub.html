@@ -3291,7 +3291,7 @@ function gSave(){
         groupName:regSelBk.retreatName||regSelBk.row||'',
         leaderName:regSelBk.leaderName||'',
       })
-    }).catch(e=>console.warn('[CB updateGuest]',e));
+    }).then(r=>r.json()).then(d=>console.log('[CB updateGuest]',JSON.stringify(d))).catch(e=>console.warn('[CB updateGuest]',e));
   }
 }
 function gDelete(){if(!gEditRegId||!confirm('Remove guest?'))return;regs=regs.filter(r=>r.id!==gEditRegId);saveAll();closeModal('guestModal');regRender();showToast('Removed.');}
