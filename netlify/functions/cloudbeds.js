@@ -44,73 +44,6 @@ exports.handler = async (event) => {
   const action = qs.action;
   const body   = event.body ? safeJSON(event.body) : {};
 
-  // Temporary debug: show raw Cloudbeds responses
-  if (action === "debugRooms") {
-    const tok = await getToken();
-    const raw = await cbGet(tok, "/getRooms");
-    return ok(h, raw);
-  }
-
-  if (action === "debugReservation") {
-    const tok = await getToken();
-    await getRooms(tok);
-    const nameParts = "TEST DEBUG".split(/\s+/);
-    const form = new URLSearchParams();
-    const roomId2    = _roomLookup[qs.room || "20"];
-    const roomTypeID2 = roomId2.split("-")[0];
-    form.append("propertyID",              process.env.CLOUDBEDS_PROPERTY_ID);
-    form.append("startDate",               qs.start || "2026-06-01");
-    form.append("endDate",                 qs.end   || "2026-06-08");
-    form.append("rooms[0][roomTypeID]",    roomTypeID2);
-    form.append("rooms[0][quantity]",      "1");
-    form.append("adults[0][roomTypeID]",   roomTypeID2);
-    form.append("adults[0][quantity]",     "2");
-    form.append("children[0][roomTypeID]", roomTypeID2);
-    form.append("children[0][quantity]",   "0");
-    form.append("guestFirstName",          "TEST");
-    form.append("guestLastName",           "DEBUG-DELETE");
-    form.append("guestEmail",              "groups@amansala.com");
-    form.append("guestCountry",            "MX");
-    form.append("guestZip",               "77780");
-    form.append("paymentMethod",           "cash");
-    const raw = await cbPost(tok, "/postReservation", form.toString());
-    return ok(h, raw);
-  }
-
-  if (action === "debugRates") {
-    const tok      = await getToken();
-    const today    = new Date().toISOString().slice(0, 10);
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-    const raw = await cbGet(tok, "/getRatePlans", { startDate: today, endDate: tomorrow });
-    return ok(h, raw);
-  }
-
-  // Temporary debug endpoint — remove after auth is confirmed working
-  if (action === "debugToken") {
-    const clientId     = process.env.CLOUDBEDS_CLIENT_ID     || "";
-    const clientSecret = process.env.CLOUDBEDS_CLIENT_SECRET || "";
-    const refreshToken = process.env.CLOUDBEDS_REFRESH_TOKEN || "";
-    const body2 = new URLSearchParams({
-      grant_type:    "refresh_token",
-      client_id:     clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-    }).toString();
-    const raw = await httpJSON("POST", CB_TOKEN, body2, {
-      "Content-Type": "application/x-www-form-urlencoded",
-    });
-    return ok(h, {
-      envSet: {
-        clientId:     !!clientId,
-        clientSecret: !!clientSecret,
-        refreshToken: !!refreshToken,
-        propertyId:   !!process.env.CLOUDBEDS_PROPERTY_ID,
-        refreshTokenPreview: refreshToken.slice(0, 8) + "...",
-      },
-      cloudbedsResponse: raw,
-    });
-  }
-
   try {
     const tok = await getToken();
 
@@ -306,7 +239,7 @@ async function createReservation(tok, body) {
   if (!res.success) throw new Error("postReservation failed: " + JSON.stringify(res));
 
   return {
-    reservationId: res.data?.reservationID || res.data?.id,
+    reservationId: res.reservationID,
     roomName,
   };
 }
