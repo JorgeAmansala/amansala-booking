@@ -242,7 +242,8 @@ async function cancelReservation(tok, reservationId) {
 
 function cbGet(tok, path, params = {}) {
   const qs = new URLSearchParams({
-    propertyID: process.env.CLOUDBEDS_PROPERTY_ID,
+    propertyID:   process.env.CLOUDBEDS_PROPERTY_ID,
+    access_token: tok,
     ...params,
   }).toString();
   return httpJSON("GET", `${CB_BASE}${path}?${qs}`, null, {
@@ -251,7 +252,9 @@ function cbGet(tok, path, params = {}) {
 }
 
 function cbPost(tok, path, formBody) {
-  return httpJSON("POST", `${CB_BASE}${path}`, formBody, {
+  // Append access_token to body as well for Cloudbeds compatibility
+  const fullBody = formBody + `&access_token=${encodeURIComponent(tok)}`;
+  return httpJSON("POST", `${CB_BASE}${path}`, fullBody, {
     Authorization:  `Bearer ${tok}`,
     "Content-Type": "application/x-www-form-urlencoded",
   });
