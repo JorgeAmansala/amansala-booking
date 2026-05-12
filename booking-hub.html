@@ -3206,9 +3206,16 @@ function blockSave(){
     return;
   }
 
+  const prevRooms=bk.blockedRooms||[];
+  if(!bk.cbReservationIds)bk.cbReservationIds={};
+  // Cancel Cloudbeds reservations for rooms removed from the block
+  prevRooms.filter(r=>!selected.includes(r)).forEach(r=>{
+    const rid=bk.cbReservationIds[r];
+    if(rid)fetch(`${CLOUDBEDS_PROXY}?action=cancelReservation`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reservationId:rid})}).catch(()=>{});
+    delete bk.cbReservationIds[r];
+  });
   bk.blockedRooms=selected;
-  bk.cbReservationIds={};  // reset so re-blocked rooms get fresh Cloudbeds reservations
-  bk.cbGroupId=null;       // reset group so a new one is created
+  // Keep existing cbReservationIds and cbGroupId — only create for new rooms
   saveAll();
   closeModal('blockModal');
   regRender();
