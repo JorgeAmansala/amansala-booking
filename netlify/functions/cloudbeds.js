@@ -286,6 +286,7 @@ async function createReservation(tok, body) {
 
   return {
     reservationId: res.reservationID,
+    guestId:       res.guestID || null,
     roomName,
   };
 }
@@ -305,19 +306,14 @@ async function cancelReservation(tok, reservationId) {
 }
 
 async function updateReservationGuest(tok, body) {
-  const { reservationId, guestFirstName, guestLastName,
+  const { reservationId, guestId, guestFirstName, guestLastName,
           groupName, leaderName } = body;
-  if (!reservationId) throw new Error("reservationId is required");
 
   const retreatName = (groupName || leaderName || "Amansala").trim();
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
-  // Fetch guestID from the reservation, then update via putGuest
-  const resInfo = await cbGet(tok, "/getReservation", { reservationID: reservationId });
-  const guestId = (resInfo.data || {}).guestID;
-
   if (!guestId) {
-    return { success: false, error: "guestID not found", raw: resInfo, reservationId };
+    return { success: false, error: "guestID not stored — re-confirm the block to sync IDs" };
   }
 
   const form = new URLSearchParams({

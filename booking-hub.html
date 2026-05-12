@@ -1597,6 +1597,7 @@ async function syncAvailabilityFromCloudbeds(start,end){
 async function pushReservationsToCloudbeds(bk){
   if(!bk.blockedRooms||!bk.blockedRooms.length)return;
   if(!bk.cbReservationIds)bk.cbReservationIds={};
+  if(!bk.cbGuestIds)bk.cbGuestIds={};
 
   // Pre-warm room lookup
   await fetch(`${CLOUDBEDS_PROXY}?action=getRooms`).catch(()=>{});
@@ -1615,6 +1616,7 @@ async function pushReservationsToCloudbeds(bk){
       const d=await res.json();
       if(!res.ok||d.error)throw new Error(d.error||`HTTP ${res.status}`);
       if(d.reservationId)bk.cbReservationIds[roomName]=d.reservationId;
+      if(d.guestId)bk.cbGuestIds[roomName]=d.guestId;
     }catch(err){console.warn(`[CB block] ${roomName}: ${err.message}`);}
   }
   saveAll();
@@ -3280,12 +3282,14 @@ function gSave(){
   saveAll();closeModal('guestModal');regRender();showToast(gEditRegId?'Updated.':'Guest added.');
   // Update Cloudbeds reservation: edit First Name = guest name, Last Name = retreat name
   const _cbResId=regSelBk&&regSelBk.cbReservationIds&&regSelBk.cbReservationIds[gEditRoom];
-  if(_cbResId&&guests[0]&&guests[0].name){
+  const _cbGuestId=regSelBk&&regSelBk.cbGuestIds&&regSelBk.cbGuestIds[gEditRoom];
+  if((_cbResId||_cbGuestId)&&guests[0]&&guests[0].name){
     const _parts=guests[0].name.trim().split(/\s+/);
     fetch(`${CLOUDBEDS_PROXY}?action=updateReservationGuest`,{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        reservationId:_cbResId,
+        reservationId:_cbResId||'',
+        guestId:_cbGuestId||'',
         guestFirstName:_parts[0],
         guestLastName:_parts.slice(1).join(' ')||'',
         groupName:regSelBk.retreatName||regSelBk.row||'',
