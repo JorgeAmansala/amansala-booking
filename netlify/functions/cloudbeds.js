@@ -52,10 +52,10 @@ exports.handler = async (event) => {
   }
 
   if (action === "debugRates") {
-    const tok = await getToken();
-    const today = new Date().toISOString().slice(0, 10);
-    const nextYear = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
-    const raw = await cbGet(tok, "/getRatePlans", { startDate: today, endDate: nextYear });
+    const tok      = await getToken();
+    const today    = new Date().toISOString().slice(0, 10);
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const raw = await cbGet(tok, "/getRatePlans", { startDate: today, endDate: tomorrow });
     return ok(h, raw);
   }
 
@@ -193,35 +193,25 @@ async function getRooms(tok) {
 }
 
 async function getRates(tok) {
-  // getRatePlans requires a date range; use today + 1 year
-  const today = new Date().toISOString().slice(0, 10);
-  const nextYear = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
-  const res = await cbGet(tok, "/getRatePlans", { startDate: today, endDate: nextYear });
+  // Request a 1-night window so roomRate = per-night rate
+  const today    = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const res = await cbGet(tok, "/getRatePlans", { startDate: today, endDate: tomorrow });
   if (!res.success) throw new Error("getRatePlans failed: " + JSON.stringify(res));
 
-  const rates = {}; // { roomTypeID: { price1, price2, price1_low, price2_low } }
-
-  for (const plan of Object.values(res.data || {})) {
-    const n = (plan.ratePlanName || "").toLowerCase();
-    for (const [rtId, rtData] of Object.entries(plan.roomTypes || {})) {
-      if (!rates[rtId]) rates[rtId] = {};
-      const rate = parseFloat(rtData.roomRate) || 0;
-      if (!rate) continue;
-
-      if      (/single.*high|1\s*p.*high|high.*single|private.*high/i.test(n)) rates[rtId].price1     = rate;
-      else if (/double.*high|2\s*p.*high|shar.*high|high.*double/i.test(n))    rates[rtId].price2     = rate;
-      else if (/single.*low|1\s*p.*low|low.*single|private.*low/i.test(n))     rates[rtId].price1_low = rate;
-      else if (/double.*low|2\s*p.*low|shar.*low|low.*double/i.test(n))        rates[rtId].price2_low = rate;
-      else {
-        // Fallback: single plan per room type — populate all slots
-        if (!rates[rtId].price1) {
-          rates[rtId].price1     = rate;
-          rates[rtId].price2     = rate;
-          rates[rtId].price1_low = Math.round(rate * 0.85);
-          rates[rtId].price2_low = Math.round(rate * 0.85);
-        }
-      }
-    }
+  // v1.3: res.data is a flat array of rate entries per room type
+  const rates = {};
+  for (const entry of (res.data || [])) {
+    if (entry.isDerived) continue; // skip promotional derived rates
+    const rtId = entry.roomTypeID;
+    if (!rtId || !entry.roomRate) continue;
+    const rate = Math.round(entry.roomRate);
+    rates[rtId] = {
+      price1:     rate,
+      price2:     rate,
+      price1_low: Math.round(rate * 0.85),
+      price2_low: Math.round(rate * 0.85),
+    };
   }
 
   return { rates };
