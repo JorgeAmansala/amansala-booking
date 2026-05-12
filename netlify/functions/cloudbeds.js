@@ -305,19 +305,21 @@ async function updateReservationGuest(tok, body) {
   const { reservationId, guestFirstName, guestLastName, guestEmail } = body;
   if (!reservationId) throw new Error("reservationId is required");
 
-  // Step 1: get guestID from the reservation
-  const resData = await cbGet(tok, "/getReservation", { reservationID: reservationId });
-  console.log("[CB updateGuest] getReservation raw:", JSON.stringify(resData).slice(0, 400));
-  if (!resData.success) throw new Error("getReservation failed: " + JSON.stringify(resData).slice(0, 200));
+  // Step 1: get guestID via getGuests (returns guest list for a reservation)
+  const guestsData = await cbGet(tok, "/getGuests", { reservationID: reservationId });
+  console.log("[CB updateGuest] getGuests:", JSON.stringify(guestsData).slice(0, 500));
 
-  const d = resData.data || {};
-  // Try all known paths where Cloudbeds may put the guestID
-  const guestID = d.guestID
-    || d.guest?.guestID
-    || (Array.isArray(d.guests) ? d.guests[0]?.guestID : null)
-    || d.reservationGuestID;
-  console.log("[CB updateGuest] data keys:", Object.keys(d).join(","), "guestID:", guestID);
-  if (!guestID) throw new Error("Could not find guestID. data keys: " + Object.keys(d).join(","));
+  let guestID = null;
+  if (guestsData.success && Array.isArray(guestsData.data) && guestsData.data.length > 0) {
+    guestID = guestsData.data[0].guestID || guestsData.data[0].id;
+  } else if (guestsData.success && guestsData.data) {
+    // might be an object with guestID directly
+    const keys = Object.keys(guestsData.data);
+    const first = guestsData.data[keys[0]];
+    guestID = first?.guestID || first?.id || guestsData.data.guestID;
+  }
+
+  if (!guestID) throw new Error("getGuests returned no guestID: " + JSON.stringify(guestsData).slice(0, 300));
 
   // Step 2: update guest via putGuest
   const form = new URLSearchParams({
@@ -329,7 +331,7 @@ async function updateReservationGuest(tok, body) {
   if (guestEmail) form.append("email", guestEmail);
 
   const res = await cbPost(tok, "/putGuest", form.toString());
-  console.log("[CB updateGuest] putGuest raw:", JSON.stringify(res).slice(0, 300));
+  console.log("[CB updateGuest] putGuest:", JSON.stringify(res).slice(0, 300));
   return { success: res.success, reservationId, guestID };
 }
 
