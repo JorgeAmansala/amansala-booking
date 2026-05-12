@@ -313,11 +313,18 @@ async function updateReservationGuest(tok, body) {
   const retreatName = (groupName || leaderName || "Amansala").trim();
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
+  console.log("[CB updateGuest] reservationId:", reservationId, "guestId:", guestId);
+
   // If guestId not stored locally, look it up from the reservation
   if (!guestId && reservationId) {
     const resInfo = await cbGet(tok, "/getReservation", { reservationID: reservationId });
-    console.log("[CB getReservation] raw:", JSON.stringify(resInfo).slice(0, 500));
-    guestId = (resInfo.data || {}).guestID;
+    console.log("[CB getReservation] raw:", JSON.stringify(resInfo).slice(0, 800));
+    // Try multiple known response shapes
+    const d = resInfo.data || {};
+    guestId = d.guestID || d.guest?.guestID
+      || (Array.isArray(d) && d[0]?.guestID)
+      || null;
+    console.log("[CB updateGuest] guestId resolved:", guestId);
   }
 
   if (!guestId) {
