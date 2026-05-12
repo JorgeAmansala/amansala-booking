@@ -243,7 +243,14 @@ async function createReservation(tok, body) {
   form.append("notes",          `Group: ${groupName || ""} · Leader: ${leaderName || ""}`);
 
   const res = await cbPost(tok, "/postReservation", form.toString());
-  if (!res.success) throw new Error("postReservation failed: " + JSON.stringify(res));
+  if (!res.success) {
+    // Skip gracefully if no rate is configured for this room type yet
+    if (res.message && res.message.includes("No rate found")) {
+      console.warn(`[CB] No rate for room ${roomName} — skipping Cloudbeds reservation`);
+      return { reservationId: null, roomName, skipped: true };
+    }
+    throw new Error("postReservation failed: " + JSON.stringify(res));
+  }
 
   return {
     reservationId: res.reservationID,
