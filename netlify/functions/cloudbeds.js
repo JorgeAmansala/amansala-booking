@@ -306,14 +306,21 @@ async function cancelReservation(tok, reservationId) {
 }
 
 async function updateReservationGuest(tok, body) {
-  const { reservationId, guestId, guestFirstName, guestLastName,
+  const { reservationId, guestFirstName, guestLastName,
           groupName, leaderName } = body;
+  let { guestId } = body;
 
   const retreatName = (groupName || leaderName || "Amansala").trim();
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
+  // If guestId not stored locally, look it up from the reservation
+  if (!guestId && reservationId) {
+    const resInfo = await cbGet(tok, "/getReservation", { reservationID: reservationId });
+    guestId = (resInfo.data || {}).guestID;
+  }
+
   if (!guestId) {
-    return { success: false, error: "guestID not stored — re-confirm the block to sync IDs" };
+    return { success: false, error: "guestID not found — delete and re-create the block" };
   }
 
   const form = new URLSearchParams({
