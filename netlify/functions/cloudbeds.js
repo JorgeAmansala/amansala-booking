@@ -310,8 +310,14 @@ async function updateReservationGuest(tok, body) {
   console.log("[CB updateGuest] getReservation raw:", JSON.stringify(resData).slice(0, 400));
   if (!resData.success) throw new Error("getReservation failed: " + JSON.stringify(resData).slice(0, 200));
 
-  const guestID = resData.data?.guestID || resData.data?.guest?.guestID;
-  if (!guestID) throw new Error("Could not find guestID in reservation: " + JSON.stringify(resData.data).slice(0, 200));
+  const d = resData.data || {};
+  // Try all known paths where Cloudbeds may put the guestID
+  const guestID = d.guestID
+    || d.guest?.guestID
+    || (Array.isArray(d.guests) ? d.guests[0]?.guestID : null)
+    || d.reservationGuestID;
+  console.log("[CB updateGuest] data keys:", Object.keys(d).join(","), "guestID:", guestID);
+  if (!guestID) throw new Error("Could not find guestID. data keys: " + Object.keys(d).join(","));
 
   // Step 2: update guest via putGuest
   const form = new URLSearchParams({
