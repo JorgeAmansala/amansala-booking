@@ -41,6 +41,32 @@ exports.handler = async (event) => {
   const action = qs.action;
   const body   = event.body ? safeJSON(event.body) : {};
 
+  // Temporary debug endpoint — remove after auth is confirmed working
+  if (action === "debugToken") {
+    const clientId     = process.env.CLOUDBEDS_CLIENT_ID     || "";
+    const clientSecret = process.env.CLOUDBEDS_CLIENT_SECRET || "";
+    const refreshToken = process.env.CLOUDBEDS_REFRESH_TOKEN || "";
+    const body2 = new URLSearchParams({
+      grant_type:    "refresh_token",
+      client_id:     clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    }).toString();
+    const raw = await httpJSON("POST", CB_TOKEN, body2, {
+      "Content-Type": "application/x-www-form-urlencoded",
+    });
+    return ok(h, {
+      envSet: {
+        clientId:     !!clientId,
+        clientSecret: !!clientSecret,
+        refreshToken: !!refreshToken,
+        propertyId:   !!process.env.CLOUDBEDS_PROPERTY_ID,
+        refreshTokenPreview: refreshToken.slice(0, 8) + "...",
+      },
+      cloudbedsResponse: raw,
+    });
+  }
+
   try {
     const tok = await getToken();
 
