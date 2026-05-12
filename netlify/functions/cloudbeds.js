@@ -305,34 +305,18 @@ async function updateReservationGuest(tok, body) {
   const { reservationId, guestFirstName, guestLastName, guestEmail } = body;
   if (!reservationId) throw new Error("reservationId is required");
 
-  // Step 1: get guestID via getGuests (returns guest list for a reservation)
-  const guestsData = await cbGet(tok, "/getGuests", { reservationID: reservationId });
-  console.log("[CB updateGuest] getGuests:", JSON.stringify(guestsData).slice(0, 500));
-
-  let guestID = null;
-  if (guestsData.success && Array.isArray(guestsData.data) && guestsData.data.length > 0) {
-    guestID = guestsData.data[0].guestID || guestsData.data[0].id;
-  } else if (guestsData.success && guestsData.data) {
-    // might be an object with guestID directly
-    const keys = Object.keys(guestsData.data);
-    const first = guestsData.data[keys[0]];
-    guestID = first?.guestID || first?.id || guestsData.data.guestID;
-  }
-
-  if (!guestID) throw new Error("getGuests returned no guestID: " + JSON.stringify(guestsData).slice(0, 300));
-
-  // Step 2: update guest via putGuest
   const form = new URLSearchParams({
-    propertyID: process.env.CLOUDBEDS_PROPERTY_ID,
-    guestID,
-    firstName:  guestFirstName || "",
-    lastName:   guestLastName  || "",
+    propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
+    reservationID:  reservationId,
+    guestFirstName: guestFirstName || "",
+    guestLastName:  guestLastName  || "",
   });
-  if (guestEmail) form.append("email", guestEmail);
+  if (guestEmail) form.append("guestEmail", guestEmail);
 
-  const res = await cbPost(tok, "/putGuest", form.toString());
-  console.log("[CB updateGuest] putGuest:", JSON.stringify(res).slice(0, 300));
-  return { success: res.success, reservationId, guestID };
+  const res = await cbPost(tok, "/putReservation", form.toString());
+  console.log("[CB updateGuest] putReservation raw:", JSON.stringify(res).slice(0, 500));
+  if (!res.success) throw new Error("putReservation failed: " + JSON.stringify(res).slice(0, 300));
+  return { success: true, reservationId };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
