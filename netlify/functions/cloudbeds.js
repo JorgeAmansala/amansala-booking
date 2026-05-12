@@ -199,19 +199,22 @@ async function getRates(tok) {
   const res = await cbGet(tok, "/getRatePlans", { startDate: today, endDate: tomorrow });
   if (!res.success) throw new Error("getRatePlans failed: " + JSON.stringify(res));
 
-  // v1.3: res.data is a flat array of rate entries per room type
+  // v1.3: res.data is a flat array; only use the two yoga rate plans
   const rates = {};
   for (const entry of (res.data || [])) {
-    if (entry.isDerived) continue; // skip promotional derived rates
-    const rtId = entry.roomTypeID;
-    if (!rtId || !entry.roomRate) continue;
-    const rate = Math.round(entry.roomRate);
-    rates[rtId] = {
-      price1:     rate,
-      price2:     rate,
-      price1_low: Math.round(rate * 0.85),
-      price2_low: Math.round(rate * 0.85),
-    };
+    const rtId    = entry.roomTypeID;
+    const planPub = (entry.ratePlanNamePublic || "").toLowerCase();
+    const rate    = Math.round(entry.roomRate || 0);
+    if (!rtId || !rate) continue;
+    if (!rates[rtId]) rates[rtId] = {};
+
+    if (planPub === "yoga rate") {
+      rates[rtId].price1 = rate;
+      rates[rtId].price2 = rate;
+    } else if (planPub === "yoga we take payment") {
+      rates[rtId].price1_low = rate;
+      rates[rtId].price2_low = rate;
+    }
   }
 
   return { rates };
