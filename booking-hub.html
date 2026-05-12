@@ -1593,9 +1593,8 @@ async function syncRatesFromCloudbeds(){
 
 async function syncAvailabilityFromCloudbeds(start,end){
   const res=await fetch(`${CLOUDBEDS_PROXY}?action=getAvailability&start=${start}&end=${end}`);
-  if(!res.ok)throw new Error(`getAvailability HTTP ${res.status}`);
   const data=await res.json();
-  if(data.error)throw new Error(data.error);
+  if(!res.ok||data.error)throw new Error(data.error||`getAvailability HTTP ${res.status}`);
   cbAvailCache=data.unavailable||{};
   if(document.getElementById('rcBody'))rcBuild();
 }

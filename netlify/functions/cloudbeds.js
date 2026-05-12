@@ -186,13 +186,20 @@ async function getAvailability(tok, start, end) {
     startDate: start,
     endDate:   end,
   });
-  if (!res.success) throw new Error("getAvailabilityReport failed: " + JSON.stringify(res));
+  console.log("[CB avail raw]", JSON.stringify(res).slice(0, 500));
+  if (!res.success) throw new Error("getAvailabilityReport failed: " + JSON.stringify(res).slice(0, 300));
 
   // Build map: roomName → [unavailable date strings]
   const unavailable = {};
-  for (const [date, rooms] of Object.entries(res.data || {})) {
-    for (const room of Object.values(rooms || {})) {
-      if (!room.available) {
+  // v1.3 data may be an object keyed by date, or an array — handle both
+  const dataEntries = Array.isArray(res.data)
+    ? res.data.map(d => [d.date || d.startDate, d])
+    : Object.entries(res.data || {});
+
+  for (const [date, rooms] of dataEntries) {
+    const roomList = Array.isArray(rooms) ? rooms : Object.values(rooms || {});
+    for (const room of roomList) {
+      if (!room.available && room.roomName) {
         if (!unavailable[room.roomName]) unavailable[room.roomName] = [];
         unavailable[room.roomName].push(date);
       }
