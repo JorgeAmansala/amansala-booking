@@ -305,6 +305,7 @@ async function updateReservationGuest(tok, body) {
   const { reservationId, guestFirstName, guestLastName, guestEmail } = body;
   if (!reservationId) throw new Error("reservationId is required");
 
+  // v1.3 putReservation does not support guest name fields — use v1.1 endpoint
   const form = new URLSearchParams({
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
     reservationID:  reservationId,
@@ -313,9 +314,17 @@ async function updateReservationGuest(tok, body) {
   });
   if (guestEmail) form.append("guestEmail", guestEmail);
 
-  const res = await cbPost(tok, "/putReservation", form.toString());
-  console.log("[CB updateGuest] putReservation raw:", JSON.stringify(res).slice(0, 500));
-  if (!res.success) throw new Error("putReservation failed: " + JSON.stringify(res).slice(0, 300));
+  const res = await httpJSON("POST",
+    "https://api.cloudbeds.com/api/v1.1/putReservation",
+    form.toString(),
+    {
+      Authorization:   `Bearer ${tok}`,
+      "X-PROPERTY-ID": process.env.CLOUDBEDS_PROPERTY_ID,
+      "Content-Type":  "application/x-www-form-urlencoded",
+    }
+  );
+  console.log("[CB updateGuest] v1.1 putReservation:", JSON.stringify(res).slice(0, 300));
+  if (!res.success) throw new Error("putReservation v1.1 failed: " + JSON.stringify(res).slice(0, 200));
   return { success: true, reservationId };
 }
 
