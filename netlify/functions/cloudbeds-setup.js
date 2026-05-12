@@ -66,7 +66,6 @@ exports.handler = async (event) => {
     client_id:     clientId,
     redirect_uri:  redirectUri,
     response_type: "code",
-    scope:         "read:property read:rooms read:rates read:reservation write:reservation",
   }).toString();
 
   return {
