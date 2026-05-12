@@ -3297,6 +3297,7 @@ function gSave(){
       })
     }).then(r=>r.json()).then(d=>{
       if(d.error)console.warn('[CB updateGuest] error:',d.error);
+      console.log('[CB updateGuest] result:',JSON.stringify(d));
       if(d.newReservationId&&regSelBk.cbReservationIds){
         regSelBk.cbReservationIds[gEditRoom]=d.newReservationId;
         saveAll();

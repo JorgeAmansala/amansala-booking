@@ -310,7 +310,7 @@ async function updateReservationGuest(tok, body) {
 
   // Cancel old reservation (best-effort — may already be canceled)
   const cancelRes = await cancelReservation(tok, reservationId);
-  console.log("[CB updateGuest] cancel:", cancelRes.success ? "ok" : "skipped");
+  console.log("[CB updateGuest] cancel result:", JSON.stringify(cancelRes));
 
   // Create new reservation: firstName = guest name, lastName = retreat name
   const newRes = await createReservation(tok, {
@@ -325,6 +325,7 @@ async function updateReservationGuest(tok, body) {
 
   return {
     success:          true,
+    cancelSuccess:    cancelRes.success,
     newReservationId: newRes.reservationId,
     roomName,
   };
