@@ -281,6 +281,9 @@ async function createReservation(tok, body) {
     guestFirstName: firstName,
     guestLastName:  lastName,
     guestEmail:     "groups@amansala.com",
+    guestCountry:   "MX",
+    guestZip:       "77780",
+    paymentMethod:  "cash",
     notes:          `Group: ${groupName || ""} · Leader: ${leaderName || ""}`,
   }).toString();
 
