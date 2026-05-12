@@ -1563,16 +1563,11 @@ async function syncRoomTypesFromCloudbeds(){
   const data=await res.json();
   if(data.error)throw new Error(data.error);
   if(data.roomLookup)cbRoomLookup=data.roomLookup;
-  (data.roomTypes||[]).forEach(cbRt=>{
-    const existing=roomTypes.find(rt=>rt.name.toLowerCase().trim()===cbRt.name.toLowerCase().trim());
-    if(existing){
-      existing.rooms=cbRt.rooms;existing.maxOcc=cbRt.maxOcc;
-      if(cbRt.color&&cbRt.color!=='#607D8B')existing.color=cbRt.color;
-      existing.cbId=cbRt.id;
-    }else{
-      roomTypes.push({...cbRt});
-    }
-  });
+  // Cloudbeds is the source of truth — replace local room types entirely
+  if(data.roomTypes&&data.roomTypes.length){
+    roomTypes.length=0;
+    data.roomTypes.forEach(rt=>roomTypes.push({...rt}));
+  }
   saveAll();
   if(document.getElementById('rcBody'))rcBuild();
 }
