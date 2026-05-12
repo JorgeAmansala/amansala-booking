@@ -51,6 +51,21 @@ exports.handler = async (event) => {
     return ok(h, raw);
   }
 
+  if (action === "debugReservation") {
+    const tok = await getToken();
+    await getRooms(tok); // ensure lookup is populated
+    const testBody = {
+      roomName:  qs.room  || "20",
+      startDate: qs.start || "2026-06-01",
+      endDate:   qs.end   || "2026-06-08",
+      groupName: "TEST DEBUG - DELETE",
+      leaderName: "Debug",
+      adults: 2,
+    };
+    const raw = await createReservation(tok, testBody);
+    return ok(h, raw);
+  }
+
   if (action === "debugRates") {
     const tok      = await getToken();
     const today    = new Date().toISOString().slice(0, 10);
@@ -246,8 +261,11 @@ async function createReservation(tok, body) {
   if (!roomName || !startDate || !endDate)
     throw new Error("roomName, startDate, endDate are required");
 
+  // Auto-populate on cold start (Lambda loses module state between instances)
+  if (!_roomLookup[roomName]) await getRooms(tok);
+
   const roomId = _roomLookup[roomName];
-  if (!roomId) throw new Error(`Room not found in lookup: ${roomName}. Call getRooms first.`);
+  if (!roomId) throw new Error(`Room not found in lookup: ${roomName}`);
 
   const nameParts = (groupName || leaderName || "Group Amansala").trim().split(/\s+/);
   const firstName = nameParts[0];
@@ -300,7 +318,7 @@ function cbGet(tok, path, params = {}) {
 }
 
 function cbPost(tok, path, formBody) {
-  return httpJSON("POST", `${CB_BASE}/${path}`, formBody, {
+  return httpJSON("POST", `${CB_BASE}${path}`, formBody, {
     Authorization:  `Bearer ${tok}`,
     "X-PROPERTY-ID": process.env.CLOUDBEDS_PROPERTY_ID,
     "Content-Type": "application/x-www-form-urlencoded",
