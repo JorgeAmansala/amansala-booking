@@ -3308,6 +3308,7 @@ function gSave(){
         endDate:regSelBk.endDate,
         groupName:regSelBk.retreatName||regSelBk.row||'',
         leaderName:regSelBk.leaderName||'',
+        groupId:regSelBk.cbGroupId||null,
       })
     }).then(r=>r.json()).then(d=>{
       if(d.error)console.warn('[CB updateGuest] error:',d.error);

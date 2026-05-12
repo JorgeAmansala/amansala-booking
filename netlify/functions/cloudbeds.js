@@ -338,18 +338,15 @@ async function cancelGroup(tok, groupId) {
 }
 
 async function updateReservationGuest(tok, body) {
-  const { reservationId, guestFirstName, guestLastName, guestEmail,
-          roomName, startDate, endDate, groupName, leaderName } = body;
+  const { reservationId, guestFirstName, guestLastName,
+          roomName, startDate, endDate, groupName, leaderName, groupId } = body;
   if (!reservationId) throw new Error("reservationId is required");
 
-  // Step 1: cancel old reservation
+  // Cancel old reservation (best-effort — may already be canceled)
   const cancelRes = await cancelReservation(tok, reservationId);
-  console.log("[CB updateGuest] cancel result:", JSON.stringify(cancelRes));
-  if (!cancelRes.success) {
-    throw new Error("Failed to cancel old reservation " + reservationId + ": " + JSON.stringify(cancelRes));
-  }
+  console.log("[CB updateGuest] cancel:", cancelRes.success ? "ok" : "skipped");
 
-  // Step 2: create new reservation with guest name
+  // Create new reservation with guest name, linked to the same group
   const newRes = await createReservation(tok, {
     roomName,
     startDate,
@@ -357,6 +354,7 @@ async function updateReservationGuest(tok, body) {
     groupName:  `${guestFirstName || ""} ${guestLastName || ""}`.trim() || groupName,
     leaderName: leaderName || "",
     adults:     1,
+    groupId:    groupId || null,
   });
 
   return {
