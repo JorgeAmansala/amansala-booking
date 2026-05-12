@@ -307,25 +307,32 @@ async function cancelReservation(tok, reservationId) {
 
 async function updateReservationGuest(tok, body) {
   const { reservationId, guestFirstName, guestLastName,
-          groupName, leaderName } = body;
+          groupName, leaderName, startDate, endDate } = body;
   let { guestId } = body;
 
   const retreatName = (groupName || leaderName || "Amansala").trim();
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
-  // If guestId not stored locally, look it up from the reservation
-  let resInfoDebug = null;
-  if (!guestId && reservationId) {
-    const resInfo = await cbGet(tok, "/getReservation", { reservationID: reservationId });
-    resInfoDebug = resInfo;
-    const d = resInfo.data || {};
-    guestId = d.guestID || d.guest?.guestID
-      || (Array.isArray(d) && d[0]?.guestID)
-      || null;
+  // If guestId not stored locally, find it via getReservations (which works with Groups & Events)
+  if (!guestId && reservationId && startDate && endDate) {
+    let pageNumber = 1;
+    outer: while (pageNumber <= 5) {
+      const res = await cbGet(tok, "/getReservations", {
+        startDate, endDate, pageNumber, pageSize: 100,
+      });
+      for (const r of (res.data || [])) {
+        if (String(r.reservationID) === String(reservationId)) {
+          guestId = r.guestID || null;
+          break outer;
+        }
+      }
+      if ((res.data || []).length < 100) break;
+      pageNumber++;
+    }
   }
 
   if (!guestId) {
-    return { success: false, error: "guestID not found", debug: resInfoDebug };
+    return { success: false, error: "guestID not found — delete and re-create the block" };
   }
 
   const form = new URLSearchParams({

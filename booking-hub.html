@@ -3294,6 +3294,8 @@ function gSave(){
         guestLastName:_parts.slice(1).join(' ')||'',
         groupName:regSelBk.retreatName||regSelBk.row||'',
         leaderName:regSelBk.leaderName||'',
+        startDate:regSelBk.startDate||'',
+        endDate:regSelBk.endDate||'',
       })
     }).then(r=>r.json()).then(d=>console.log('[CB updateGuest]',JSON.stringify(d))).catch(e=>console.warn('[CB updateGuest]',e));
   }
