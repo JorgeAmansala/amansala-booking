@@ -238,7 +238,10 @@ async function createReservation(tok, body) {
   const roomId = _roomLookup[roomName]
     || _roomLookup[roomName.toLowerCase()]
     || _roomLookup[roomName.toUpperCase()];
-  if (!roomId) throw new Error(`Room not found in lookup: ${roomName}`);
+  if (!roomId) {
+    const known = Object.keys(_roomLookup).slice(0, 40).join(", ");
+    throw new Error(`Room not found in lookup: ${roomName}. Known rooms: ${known}`);
+  }
 
   const nameParts = (groupName || leaderName || "Group Amansala").trim().split(/\s+/);
   const firstName = nameParts[0];

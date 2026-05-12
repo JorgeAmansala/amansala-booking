@@ -1602,8 +1602,11 @@ async function syncAvailabilityFromCloudbeds(start,end){
 async function pushReservationsToCloudbeds(bk){
   if(!bk.blockedRooms||!bk.blockedRooms.length)return;
   if(!bk.cbReservationIds)bk.cbReservationIds={};
-  await Promise.all(bk.blockedRooms.map(async roomName=>{
-    if(bk.cbReservationIds[roomName])return;
+  // Pre-warm the room lookup so every reservation call shares one getRooms fetch
+  await fetch(`${CLOUDBEDS_PROXY}?action=getRooms`).catch(()=>{});
+  // Sequential to avoid hitting Cloudbeds API rate limit
+  for(const roomName of bk.blockedRooms){
+    if(bk.cbReservationIds[roomName])continue;
     try{
       const res=await fetch(`${CLOUDBEDS_PROXY}?action=createReservation`,{
         method:'POST',headers:{'Content-Type':'application/json'},
@@ -1616,7 +1619,7 @@ async function pushReservationsToCloudbeds(bk){
       if(!res.ok||d.error)throw new Error(d.error||`HTTP ${res.status}`);
       if(d.reservationId)bk.cbReservationIds[roomName]=d.reservationId;
     }catch(err){console.warn(`[CB block] ${roomName}: ${err.message}`);}
-  }));
+  }
   saveAll();
 }
 
