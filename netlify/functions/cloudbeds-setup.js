@@ -62,7 +62,7 @@ exports.handler = async (event) => {
   }
 
   // Step 1: redirect to Cloudbeds authorization page
-  const authUrl = "https://hotels.cloudbeds.com/oauth/authorize?" + new URLSearchParams({
+  const authUrl = "https://api.cloudbeds.com/api/v1.3/oauth?" + new URLSearchParams({
     client_id:     clientId,
     redirect_uri:  redirectUri,
     response_type: "code",
