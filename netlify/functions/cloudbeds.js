@@ -141,13 +141,25 @@ async function getToken() {
 // ─── API actions ─────────────────────────────────────────────────────────────
 
 async function getRooms(tok) {
-  const res = await cbGet(tok, "/getRooms");
-  if (!res.success) throw new Error("getRooms failed: " + JSON.stringify(res));
+  // Fetch all pages (v1.3 returns max 100 per page; total can be 183+)
+  let allRooms = [];
+  let pageNumber = 1;
+  while (true) {
+    const res = await cbGet(tok, "/getRooms", { pageNumber, pageSize: 100 });
+    if (!res.success) throw new Error("getRooms failed: " + JSON.stringify(res));
+    // v1.3 nests rooms under data[].rooms (one entry per property)
+    for (const prop of (res.data || [])) {
+      allRooms = allRooms.concat(prop.rooms || []);
+    }
+    if (allRooms.length >= (res.total || 0)) break;
+    pageNumber++;
+    if (pageNumber > 10) break; // safety limit
+  }
 
   const types  = {};
   const lookup = {};
 
-  for (const r of (res.data || [])) {
+  for (const r of allRooms) {
     lookup[r.roomName] = r.roomID;
 
     if (!types[r.roomTypeID]) {
@@ -159,7 +171,6 @@ async function getRooms(tok) {
         color:    COLOR_MAP[nameLow] || "#607D8B",
         maxOcc:   parseInt(r.maxGuests, 10) || 2,
         rooms:    [],
-        // Prices filled by getRates; zero until then
         price1: 0, price2: 0, price1_low: 0, price2_low: 0,
       };
     }
