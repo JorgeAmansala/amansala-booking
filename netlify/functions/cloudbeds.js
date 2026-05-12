@@ -271,21 +271,20 @@ async function createReservation(tok, body) {
   const firstName = nameParts[0];
   const lastName  = nameParts.slice(1).join(" ") || "Amansala";
 
-  const form = new URLSearchParams({
-    propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
-    startDate,
-    endDate,
-    rooms:          roomId,
-    adults:         adults || 2,
-    children:       0,
-    guestFirstName: firstName,
-    guestLastName:  lastName,
-    guestEmail:     "groups@amansala.com",
-    guestCountry:   "MX",
-    guestZip:       "77780",
-    paymentMethod:  "cash",
-    notes:          `Group: ${groupName || ""} · Leader: ${leaderName || ""}`,
-  }).toString();
+  const form = new URLSearchParams();
+  form.append("propertyID",     process.env.CLOUDBEDS_PROPERTY_ID);
+  form.append("startDate",      startDate);
+  form.append("endDate",        endDate);
+  form.append("rooms[0]",       roomId);
+  form.append("adults[0]",      String(adults || 2));
+  form.append("children[0]",    "0");
+  form.append("guestFirstName", firstName);
+  form.append("guestLastName",  lastName);
+  form.append("guestEmail",     "groups@amansala.com");
+  form.append("guestCountry",   "MX");
+  form.append("guestZip",       "77780");
+  form.append("paymentMethod",  "cash");
+  form.append("notes",          `Group: ${groupName || ""} · Leader: ${leaderName || ""}`);
 
   const res = await cbPost(tok, "/postReservation", form);
   if (!res.success) throw new Error("postReservation failed: " + JSON.stringify(res));
