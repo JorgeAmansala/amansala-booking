@@ -182,26 +182,43 @@ async function getRates(tok) {
 }
 
 async function getAvailability(tok, start, end) {
-  const res = await cbGet(tok, "/getAvailabilityReport", {
-    startDate: start,
-    endDate:   end,
-  });
-  console.log("[CB avail raw]", JSON.stringify(res).slice(0, 500));
-  if (!res.success) throw new Error("getAvailabilityReport failed: " + JSON.stringify(res).slice(0, 300));
+  // getAvailabilityReport returns HTML; derive availability from getReservations instead
+  let allRes = [];
+  let pageNumber = 1;
+  while (true) {
+    const res = await cbGet(tok, "/getReservations", {
+      startDate:  start,
+      endDate:    end,
+      pageNumber,
+      pageSize:   100,
+    });
+    if (!res.success) throw new Error("getReservations failed: " + JSON.stringify(res).slice(0, 300));
+    const page = res.data || [];
+    allRes = allRes.concat(page);
+    if (allRes.length >= (res.total || 0) || page.length === 0) break;
+    pageNumber++;
+    if (pageNumber > 20) break;
+  }
 
-  // Build map: roomName → [unavailable date strings]
   const unavailable = {};
-  // v1.3 data may be an object keyed by date, or an array — handle both
-  const dataEntries = Array.isArray(res.data)
-    ? res.data.map(d => [d.date || d.startDate, d])
-    : Object.entries(res.data || {});
+  const DAY_MS  = 86400000;
+  const startMs = new Date(start).getTime();
+  const endMs   = new Date(end).getTime();
 
-  for (const [date, rooms] of dataEntries) {
-    const roomList = Array.isArray(rooms) ? rooms : Object.values(rooms || {});
-    for (const room of roomList) {
-      if (!room.available && room.roomName) {
-        if (!unavailable[room.roomName]) unavailable[room.roomName] = [];
-        unavailable[room.roomName].push(date);
+  for (const r of allRes) {
+    if (r.status === "canceled" || r.status === "no_show") continue;
+    // rooms may appear as r.assignedRooms, r.rooms, or r.accommodation
+    const rooms = r.assignedRooms || r.rooms || r.accommodation || [];
+    const resStart = new Date(r.startDate || r.arrivalDate).getTime();
+    const resEnd   = new Date(r.endDate   || r.departureDate).getTime();
+
+    for (const room of (Array.isArray(rooms) ? rooms : Object.values(rooms))) {
+      const name = room.roomName || room.name || room;
+      if (!name || typeof name !== "string") continue;
+      if (!unavailable[name]) unavailable[name] = [];
+      for (let ms = Math.max(resStart, startMs); ms < Math.min(resEnd, endMs); ms += DAY_MS) {
+        const d = new Date(ms).toISOString().slice(0, 10);
+        if (!unavailable[name].includes(d)) unavailable[name].push(d);
       }
     }
   }
