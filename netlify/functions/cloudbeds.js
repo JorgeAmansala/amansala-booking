@@ -316,6 +316,7 @@ async function updateReservationGuest(tok, body) {
   // If guestId not stored locally, look it up from the reservation
   if (!guestId && reservationId) {
     const resInfo = await cbGet(tok, "/getReservation", { reservationID: reservationId });
+    console.log("[CB getReservation] raw:", JSON.stringify(resInfo).slice(0, 500));
     guestId = (resInfo.data || {}).guestID;
   }
 
