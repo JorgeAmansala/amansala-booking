@@ -2,8 +2,9 @@
 const { request } = require("https");
 
 // ─── Module-level state (survives warm Lambda invocations) ───────────────────
-let _token     = null; // { access_token, expires_at_ms }
-let _roomLookup = {};  // { roomName → Cloudbeds roomID }
+let _token      = null; // { access_token, expires_at_ms }
+let _roomLookup = {};   // { roomName → Cloudbeds roomID }
+let _maxOcc     = {};   // { roomName → maxGuests }
 
 const CB_BASE  = "https://api.cloudbeds.com/api/v1.3";
 const CB_TOKEN = "https://api.cloudbeds.com/api/v1.2/access_token";
@@ -145,6 +146,7 @@ async function getRooms(tok) {
       };
     }
     types[r.roomTypeID].rooms.push(r.roomName);
+    _maxOcc[r.roomName] = parseInt(r.maxGuests, 10) || 2;
   }
 
   _roomLookup = lookup;
@@ -226,8 +228,10 @@ async function createReservation(tok, body) {
   const roomTypeID = roomId.split("-")[0];
   form.append("rooms[0][roomTypeID]", roomTypeID);
   form.append("rooms[0][quantity]",   "1");
+  const maxGuests   = _maxOcc[roomName] || _maxOcc[roomName.toLowerCase()] || 2;
+  const adultCount  = Math.min(adults || 2, maxGuests);
   form.append("adults[0][roomTypeID]",   roomTypeID);
-  form.append("adults[0][quantity]",     String(adults || 2));
+  form.append("adults[0][quantity]",     String(adultCount));
   form.append("children[0][roomTypeID]", roomTypeID);
   form.append("children[0][quantity]",   "0");
   form.append("guestFirstName", firstName);
