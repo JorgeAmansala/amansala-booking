@@ -8,25 +8,28 @@ let _roomLookup = {};  // { roomName → Cloudbeds roomID }
 const CB_BASE  = "https://api.cloudbeds.com/api/v1.3";
 const CB_TOKEN = "https://api.cloudbeds.com/api/v1.2/access_token";
 
-// Preserve existing hub colors when mapping Cloudbeds room type names
+// Colors keyed to actual Cloudbeds room type names (lowercase)
 const COLOR_MAP = {
-  "beachfront king":        "#0891b2",
-  "superior king":          "#7c3aed",
-  "garden plus king":       "#16a34a",
-  "garden king":            "#2d6a6a",
-  "garden basic":           "#ca8a04",
-  "double beachview":       "#2563eb",
-  "double room":            "#dc2626",
-  "triple":                 "#9333ea",
-  "quad":                   "#e11d48",
-  "shanti king":            "#0369a1",
-  "shanti 2 queens":        "#0284c7",
-  "casa king downstairs":   "#92400e",
-  "casa grande bedroom":    "#b45309",
-  "casa 2 queens":          "#d97706",
-  "cg individual bed":      "#f59e0b",
-  "cg small queen":         "#fbbf24",
-  "cg full house":          "#78350f",
+  "beachfront king":           "#0891b2",
+  "beachview double":          "#2563eb",
+  "bed in a beachview double": "#2563eb",
+  "superior":                  "#7c3aed",
+  "garden plus":               "#16a34a",
+  "garden":                    "#2d6a6a",
+  "simple n small":            "#ca8a04",
+  "double":                    "#dc2626",
+  "bed in a double room":      "#dc2626",
+  "triple":                    "#9333ea",
+  "bed in a triple room":      "#9333ea",
+  "quad":                      "#e11d48",
+  "bed in a quad room":        "#e11d48",
+  "casa master":               "#b45309",
+  "casa shanti":               "#0369a1",
+  "shanti king":               "#0369a1",
+  "shanti 2 bed":              "#0284c7",
+  "casita 4":                  "#78350f",
+  "casita 4 / 1 bed":          "#f59e0b",
+  "casita 4 / 2 beds":         "#fbbf24",
 };
 
 // ─── Main handler ────────────────────────────────────────────────────────────
@@ -328,10 +331,9 @@ function httpJSON(method, url, body, headers = {}) {
 
 function deriveProperty(roomTypeName) {
   const n = (roomTypeName || "").toUpperCase();
-  if (n.includes("SHANTI"))                        return "CASA SHANTI";
-  if (n.includes("CASA") && n.includes("GRANDE"))  return "CASA GRANDE";
-  if (n.includes("MOJAVE"))                        return "MOJAVE";
-  if (n.includes("CHIKA"))                         return "CHIKA";
+  if (n.includes("SHANTI"))   return "CASA SHANTI";
+  if (n.includes("MOJAVE"))   return "MOJAVE";
+  if (n.includes("CHIKA"))    return "CHIKA";
   return "AMANSALA";
 }
 
