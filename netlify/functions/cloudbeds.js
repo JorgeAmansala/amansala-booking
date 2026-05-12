@@ -306,9 +306,14 @@ async function updateReservationGuest(tok, body) {
           roomName, startDate, endDate, groupName, leaderName } = body;
   if (!reservationId) throw new Error("reservationId is required");
 
-  // putReservation does not support updating guest names — cancel + recreate instead
-  await cancelReservation(tok, reservationId);
+  // Step 1: cancel old reservation
+  const cancelRes = await cancelReservation(tok, reservationId);
+  console.log("[CB updateGuest] cancel result:", JSON.stringify(cancelRes));
+  if (!cancelRes.success) {
+    throw new Error("Failed to cancel old reservation " + reservationId + ": " + JSON.stringify(cancelRes));
+  }
 
+  // Step 2: create new reservation with guest name
   const newRes = await createReservation(tok, {
     roomName,
     startDate,
