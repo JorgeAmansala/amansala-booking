@@ -278,7 +278,6 @@ async function createReservation(tok, body) {
   // roomId format is "roomTypeID-index" (e.g. "667992-0")
   const roomTypeID = roomId.split("-")[0];
   form.append("rooms[0][roomTypeID]", roomTypeID);
-  form.append("rooms[0][roomID]",     roomId);
   form.append("rooms[0][quantity]",   "1");
   form.append("adults[0][roomTypeID]",   roomTypeID);
   form.append("adults[0][quantity]",     String(adults || 2));
