@@ -24,7 +24,7 @@ exports.handler = async (event) => {
 
     const res = await httpJSON(
       "POST",
-      "https://hotels.cloudbeds.com/api/v1.1/oauth/access_token",
+      "https://api.cloudbeds.com/api/v1.3/oauth/access_token",
       body,
       { "Content-Type": "application/x-www-form-urlencoded" }
     );
@@ -62,7 +62,7 @@ exports.handler = async (event) => {
   }
 
   // Step 1: redirect to Cloudbeds authorization page
-  const authUrl = "https://hotels.cloudbeds.com/api/v1.1/oauth/authorize?" + new URLSearchParams({
+  const authUrl = "https://api.cloudbeds.com/api/v1.3/oauth/authorize?" + new URLSearchParams({
     client_id:     clientId,
     redirect_uri:  redirectUri,
     response_type: "code",

@@ -5,7 +5,8 @@ const { request } = require("https");
 let _token     = null; // { access_token, expires_at_ms }
 let _roomLookup = {};  // { roomName → Cloudbeds roomID }
 
-const CB_BASE = "https://hotels.cloudbeds.com/api/v1.1";
+const CB_BASE   = "https://api.cloudbeds.com/api/v1.3";
+const CB_OAUTH  = "https://api.cloudbeds.com/api/v1.3/oauth";
 
 // Preserve existing hub colors when mapping Cloudbeds room type names
 const COLOR_MAP = {
@@ -95,7 +96,7 @@ async function getToken() {
 
   const res = await httpJSON(
     "POST",
-    "https://hotels.cloudbeds.com/api/v1.1/oauth/access_token",
+    `${CB_OAUTH}/access_token`,
     body,
     { "Content-Type": "application/x-www-form-urlencoded" }
   );
