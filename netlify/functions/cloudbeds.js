@@ -208,7 +208,10 @@ async function createReservation(tok, body) {
   // Auto-populate on cold start (Lambda loses module state between instances)
   if (!_roomLookup[roomName]) await getRooms(tok);
 
-  const roomId = _roomLookup[roomName];
+  // Case-insensitive fallback (hub may store "1A" while Cloudbeds has "1a")
+  const roomId = _roomLookup[roomName]
+    || _roomLookup[roomName.toLowerCase()]
+    || _roomLookup[roomName.toUpperCase()];
   if (!roomId) throw new Error(`Room not found in lookup: ${roomName}`);
 
   const nameParts = (groupName || leaderName || "Group Amansala").trim().split(/\s+/);
