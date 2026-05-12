@@ -279,6 +279,7 @@ async function createReservation(tok, body) {
   const roomTypeID = roomId.split("-")[0];
   form.append("rooms[0][roomTypeID]", roomTypeID);
   form.append("rooms[0][roomID]",     roomId);
+  form.append("rooms[0][quantity]",   "1");
   form.append("adults[0]",            String(adults || 2));
   form.append("children[0]",          "0");
   form.append("guestFirstName", firstName);
