@@ -70,20 +70,24 @@ exports.handler = async (event) => {
   }
 };
 
-// ─── Auth: supports static API key OR OAuth2 client_credentials ──────────────
+// ─── Auth: static API key (live1_...) used directly as Bearer token ──────────
 async function getToken() {
-  // Static API key path (format: live1_PROPERTYID_KEY) — no exchange needed
-  if (process.env.CLOUDBEDS_API_KEY) {
-    return process.env.CLOUDBEDS_API_KEY;
+  // CLOUDBEDS_API_KEY takes priority
+  if (process.env.CLOUDBEDS_API_KEY) return process.env.CLOUDBEDS_API_KEY;
+
+  // If CLIENT_ID looks like a static key (live1_... format), use it directly
+  const clientId = process.env.CLOUDBEDS_CLIENT_ID || "";
+  if (clientId.startsWith("live1_") || clientId.startsWith("live2_")) {
+    return clientId;
   }
 
-  // OAuth2 client_credentials path
+  // OAuth2 client_credentials path (for future proper OAuth apps)
   const now = Date.now();
   if (_token && _token.expires_at_ms > now + 60_000) return _token.access_token;
 
   const body = new URLSearchParams({
     grant_type:    "client_credentials",
-    client_id:     process.env.CLOUDBEDS_CLIENT_ID,
+    client_id:     clientId,
     client_secret: process.env.CLOUDBEDS_CLIENT_SECRET,
   }).toString();
 
