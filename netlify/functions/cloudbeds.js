@@ -5,8 +5,8 @@ const { request } = require("https");
 let _token     = null; // { access_token, expires_at_ms }
 let _roomLookup = {};  // { roomName → Cloudbeds roomID }
 
-const CB_BASE  = "https://api.cloudbeds.com/api/v1.2";
-const CB_TOKEN = "https://api.cloudbeds.com/api/v1.2/access_token";
+const CB_BASE  = "https://hotels.cloudbeds.com/api/v1.2";
+const CB_TOKEN = "https://hotels.cloudbeds.com/api/v1.2/access_token";
 
 // Preserve existing hub colors when mapping Cloudbeds room type names
 const COLOR_MAP = {
@@ -268,7 +268,7 @@ function cbGet(tok, path, params = {}) {
     propertyID: process.env.CLOUDBEDS_PROPERTY_ID,
     ...params,
   }).toString();
-  return httpJSON("GET", `${CB_BASE}/${path}?${qs}`, null, {
+  return httpJSON("GET", `${CB_BASE}${path}?${qs}`, null, {
     Authorization:  `Bearer ${tok}`,
     "X-PROPERTY-ID": process.env.CLOUDBEDS_PROPERTY_ID,
   });

@@ -24,7 +24,7 @@ exports.handler = async (event) => {
 
     const res = await httpJSON(
       "POST",
-      "https://api.cloudbeds.com/api/v1.2/access_token",
+      "https://hotels.cloudbeds.com/api/v1.2/access_token",
       body,
       { "Content-Type": "application/x-www-form-urlencoded" }
     );
