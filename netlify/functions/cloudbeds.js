@@ -70,36 +70,38 @@ exports.handler = async (event) => {
   }
 };
 
-// ─── Auth: static API key (live1_...) used directly as Bearer token ──────────
+// ─── Auth: OAuth2 authorization_code with refresh_token ──────────────────────
 async function getToken() {
-  // CLOUDBEDS_API_KEY takes priority
-  if (process.env.CLOUDBEDS_API_KEY) return process.env.CLOUDBEDS_API_KEY;
-
-  // If CLIENT_ID looks like a static key (live1_... format), use it directly
-  const clientId = process.env.CLOUDBEDS_CLIENT_ID || "";
-  if (clientId.startsWith("live1_") || clientId.startsWith("live2_")) {
-    return clientId;
-  }
-
-  // OAuth2 client_credentials path (for future proper OAuth apps)
+  // Use cached token if still valid
   const now = Date.now();
   if (_token && _token.expires_at_ms > now + 60_000) return _token.access_token;
 
+  const clientId     = process.env.CLOUDBEDS_CLIENT_ID     || "";
+  const clientSecret = process.env.CLOUDBEDS_CLIENT_SECRET || "";
+  const refreshToken = process.env.CLOUDBEDS_REFRESH_TOKEN || "";
+
+  if (!refreshToken) throw new Error(
+    "CLOUDBEDS_REFRESH_TOKEN not set. Complete OAuth2 setup at " +
+    "/.netlify/functions/cloudbeds-setup"
+  );
+
+  // Exchange refresh_token for new access_token
   const body = new URLSearchParams({
-    grant_type:    "client_credentials",
+    grant_type:    "refresh_token",
     client_id:     clientId,
-    client_secret: process.env.CLOUDBEDS_CLIENT_SECRET,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
   }).toString();
 
   const res = await httpJSON(
     "POST",
-    "https://hotels.cloudbeds.com/api/v1.1/access_token",
+    "https://hotels.cloudbeds.com/oauth/access_token",
     body,
     { "Content-Type": "application/x-www-form-urlencoded" }
   );
 
   if (!res.access_token)
-    throw new Error("Cloudbeds auth failed: " + JSON.stringify(res));
+    throw new Error("Cloudbeds token refresh failed: " + JSON.stringify(res));
 
   _token = {
     access_token:  res.access_token,
