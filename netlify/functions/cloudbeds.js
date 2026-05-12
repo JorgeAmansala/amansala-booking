@@ -95,7 +95,7 @@ async function getToken() {
 
   const res = await httpJSON(
     "POST",
-    "https://hotels.cloudbeds.com/oauth/access_token",
+    "https://hotels.cloudbeds.com/api/v1.1/oauth/access_token",
     body,
     { "Content-Type": "application/x-www-form-urlencoded" }
   );
