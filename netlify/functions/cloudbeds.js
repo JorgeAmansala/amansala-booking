@@ -277,6 +277,7 @@ async function createReservation(tok, body) {
     endDate,
     rooms:          roomId,
     adults:         adults || 2,
+    children:       0,
     guestFirstName: firstName,
     guestLastName:  lastName,
     guestEmail:     "groups@amansala.com",
