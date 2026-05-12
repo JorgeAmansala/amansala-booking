@@ -275,7 +275,7 @@ async function createReservation(tok, body) {
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
     startDate,
     endDate,
-    roomID:         roomId,
+    rooms:          roomId,
     adults:         adults || 2,
     guestFirstName: firstName,
     guestLastName:  lastName,
