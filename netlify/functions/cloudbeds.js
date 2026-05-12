@@ -53,16 +53,27 @@ exports.handler = async (event) => {
 
   if (action === "debugReservation") {
     const tok = await getToken();
-    await getRooms(tok); // ensure lookup is populated
-    const testBody = {
-      roomName:  qs.room  || "20",
-      startDate: qs.start || "2026-06-01",
-      endDate:   qs.end   || "2026-06-08",
-      groupName: "TEST DEBUG - DELETE",
-      leaderName: "Debug",
-      adults: 2,
-    };
-    const raw = await createReservation(tok, testBody);
+    await getRooms(tok);
+    const nameParts = "TEST DEBUG".split(/\s+/);
+    const form = new URLSearchParams();
+    const roomId2    = _roomLookup[qs.room || "20"];
+    const roomTypeID2 = roomId2.split("-")[0];
+    form.append("propertyID",              process.env.CLOUDBEDS_PROPERTY_ID);
+    form.append("startDate",               qs.start || "2026-06-01");
+    form.append("endDate",                 qs.end   || "2026-06-08");
+    form.append("rooms[0][roomTypeID]",    roomTypeID2);
+    form.append("rooms[0][quantity]",      "1");
+    form.append("adults[0][roomTypeID]",   roomTypeID2);
+    form.append("adults[0][quantity]",     "2");
+    form.append("children[0][roomTypeID]", roomTypeID2);
+    form.append("children[0][quantity]",   "0");
+    form.append("guestFirstName",          "TEST");
+    form.append("guestLastName",           "DEBUG-DELETE");
+    form.append("guestEmail",              "groups@amansala.com");
+    form.append("guestCountry",            "MX");
+    form.append("guestZip",               "77780");
+    form.append("paymentMethod",           "cash");
+    const raw = await cbPost(tok, "/postReservation", form.toString());
     return ok(h, raw);
   }
 
