@@ -53,7 +53,9 @@ exports.handler = async (event) => {
 
   if (action === "debugRates") {
     const tok = await getToken();
-    const raw = await cbGet(tok, "/getRatePlans");
+    const today = new Date().toISOString().slice(0, 10);
+    const nextYear = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+    const raw = await cbGet(tok, "/getRatePlans", { startDate: today, endDate: nextYear });
     return ok(h, raw);
   }
 
@@ -191,7 +193,10 @@ async function getRooms(tok) {
 }
 
 async function getRates(tok) {
-  const res = await cbGet(tok, "/getRatePlans");
+  // getRatePlans requires a date range; use today + 1 year
+  const today = new Date().toISOString().slice(0, 10);
+  const nextYear = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+  const res = await cbGet(tok, "/getRatePlans", { startDate: today, endDate: nextYear });
   if (!res.success) throw new Error("getRatePlans failed: " + JSON.stringify(res));
 
   const rates = {}; // { roomTypeID: { price1, price2, price1_low, price2_low } }
