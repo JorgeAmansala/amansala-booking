@@ -272,14 +272,15 @@ async function createReservation(tok, body) {
   const lastName  = nameParts.slice(1).join(" ") || "Amansala";
 
   const form = new URLSearchParams({
-    propertyID:    process.env.CLOUDBEDS_PROPERTY_ID,
+    propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
     startDate,
     endDate,
-    roomID:        roomId,
-    adults:        adults || 2,
+    roomID:         roomId,
+    adults:         adults || 2,
     guestFirstName: firstName,
     guestLastName:  lastName,
-    notes:         `Group: ${groupName || ""} · Leader: ${leaderName || ""}`,
+    guestEmail:     "groups@amansala.com",
+    notes:          `Group: ${groupName || ""} · Leader: ${leaderName || ""}`,
   }).toString();
 
   const res = await cbPost(tok, "/postReservation", form);
