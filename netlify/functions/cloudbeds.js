@@ -275,9 +275,12 @@ async function createReservation(tok, body) {
   form.append("propertyID",     process.env.CLOUDBEDS_PROPERTY_ID);
   form.append("startDate",      startDate);
   form.append("endDate",        endDate);
-  form.append("rooms[0]",       roomId);
-  form.append("adults[0]",      String(adults || 2));
-  form.append("children[0]",    "0");
+  // roomId format is "roomTypeID-index" (e.g. "667992-0")
+  const roomTypeID = roomId.split("-")[0];
+  form.append("rooms[0][roomTypeID]", roomTypeID);
+  form.append("rooms[0][roomID]",     roomId);
+  form.append("adults[0]",            String(adults || 2));
+  form.append("children[0]",          "0");
   form.append("guestFirstName", firstName);
   form.append("guestLastName",  lastName);
   form.append("guestEmail",     "groups@amansala.com");
