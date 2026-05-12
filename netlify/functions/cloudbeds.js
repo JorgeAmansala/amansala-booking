@@ -305,16 +305,26 @@ async function updateReservationGuest(tok, body) {
   const { reservationId, guestFirstName, guestLastName, guestEmail } = body;
   if (!reservationId) throw new Error("reservationId is required");
 
-  const form = new URLSearchParams({
-    propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
-    reservationID:  reservationId,
-    guestFirstName: guestFirstName || "",
-    guestLastName:  guestLastName  || "",
-  });
-  if (guestEmail) form.append("guestEmail", guestEmail);
+  // Step 1: get guestID from the reservation
+  const resData = await cbGet(tok, "/getReservation", { reservationID: reservationId });
+  console.log("[CB updateGuest] getReservation raw:", JSON.stringify(resData).slice(0, 400));
+  if (!resData.success) throw new Error("getReservation failed: " + JSON.stringify(resData).slice(0, 200));
 
-  const res = await cbPost(tok, "/putReservation", form.toString());
-  return { success: res.success, reservationId };
+  const guestID = resData.data?.guestID || resData.data?.guest?.guestID;
+  if (!guestID) throw new Error("Could not find guestID in reservation: " + JSON.stringify(resData.data).slice(0, 200));
+
+  // Step 2: update guest via putGuest
+  const form = new URLSearchParams({
+    propertyID: process.env.CLOUDBEDS_PROPERTY_ID,
+    guestID,
+    firstName:  guestFirstName || "",
+    lastName:   guestLastName  || "",
+  });
+  if (guestEmail) form.append("email", guestEmail);
+
+  const res = await cbPost(tok, "/putGuest", form.toString());
+  console.log("[CB updateGuest] putGuest raw:", JSON.stringify(res).slice(0, 300));
+  return { success: res.success, reservationId, guestID };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
