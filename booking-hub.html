@@ -1597,9 +1597,22 @@ async function syncAvailabilityFromCloudbeds(start,end){
 async function pushReservationsToCloudbeds(bk){
   if(!bk.blockedRooms||!bk.blockedRooms.length)return;
   if(!bk.cbReservationIds)bk.cbReservationIds={};
-  // Pre-warm the room lookup so every reservation call shares one getRooms fetch
+
+  // Step 1: create Cloudbeds group for this retreat (one group per block)
+  if(!bk.cbGroupId){
+    try{
+      const gr=await fetch(`${CLOUDBEDS_PROXY}?action=createGroup`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({groupName:bk.retreatName||bk.row||'Group',startDate:bk.startDate,endDate:bk.endDate})
+      }).then(r=>r.json());
+      if(gr.groupId)bk.cbGroupId=gr.groupId;
+    }catch(e){console.warn('[CB createGroup]',e);}
+  }
+
+  // Step 2: pre-warm room lookup
   await fetch(`${CLOUDBEDS_PROXY}?action=getRooms`).catch(()=>{});
-  // Sequential to avoid hitting Cloudbeds API rate limit
+
+  // Step 3: create reservations linked to the group (sequential to avoid rate limit)
   for(const roomName of bk.blockedRooms){
     if(bk.cbReservationIds[roomName])continue;
     try{
@@ -1607,7 +1620,8 @@ async function pushReservationsToCloudbeds(bk){
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           roomName,startDate:bk.startDate,endDate:bk.endDate,
-          groupName:bk.retreatName||bk.row||'',leaderName:bk.leaderName||'',adults:2
+          groupName:bk.retreatName||bk.row||'',leaderName:bk.leaderName||'',adults:2,
+          groupId:bk.cbGroupId||null
         })
       });
       const d=await res.json();
@@ -1619,22 +1633,23 @@ async function pushReservationsToCloudbeds(bk){
 }
 
 async function cancelCloudbedReservations(bk){
-  if(!bk||!bk.cbReservationIds)return;
-  const ids=Object.values(bk.cbReservationIds).filter(Boolean);
-  if(!ids.length)return;
-  try{
-    await fetch(`${CLOUDBEDS_PROXY}?action=cancelReservation`,{
+  if(!bk)return;
+  // Cancel the Cloudbeds group (cancels all linked reservations at once)
+  if(bk.cbGroupId){
+    fetch(`${CLOUDBEDS_PROXY}?action=cancelGroup`,{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({reservationId:ids[0]})
-    });
-    // Cancel remaining ones sequentially
-    for(let i=1;i<ids.length;i++){
-      fetch(`${CLOUDBEDS_PROXY}?action=cancelReservation`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({reservationId:ids[i]})
-      }).catch(e=>console.warn('[CB cancel]',e));
-    }
-  }catch(e){console.warn('[CB cancel all]',e);}
+      body:JSON.stringify({groupId:bk.cbGroupId})
+    }).catch(e=>console.warn('[CB cancelGroup]',e));
+    return;
+  }
+  // Fallback: cancel individual reservations (old blocks without groupId)
+  const ids=Object.values(bk.cbReservationIds||{}).filter(Boolean);
+  for(const reservationId of ids){
+    fetch(`${CLOUDBEDS_PROXY}?action=cancelReservation`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({reservationId})
+    }).catch(e=>console.warn('[CB cancel]',e));
+  }
 }
 
 function exportData(){
@@ -3192,6 +3207,7 @@ function blockSave(){
 
   bk.blockedRooms=selected;
   bk.cbReservationIds={};  // reset so re-blocked rooms get fresh Cloudbeds reservations
+  bk.cbGroupId=null;       // reset group so a new one is created
   saveAll();
   closeModal('blockModal');
   regRender();

@@ -66,6 +66,12 @@ exports.handler = async (event) => {
       case "cancelReservation":
         return ok(h, await cancelReservation(tok, body.reservationId));
 
+      case "createGroup":
+        return ok(h, await createGroup(tok, body));
+
+      case "cancelGroup":
+        return ok(h, await cancelGroup(tok, body.groupId));
+
       case "updateReservationGuest":
         return ok(h, await updateReservationGuest(tok, body));
 
@@ -230,7 +236,7 @@ async function getAvailability(tok, start, end) {
 }
 
 async function createReservation(tok, body) {
-  const { roomName, startDate, endDate, groupName, leaderName, adults } = body;
+  const { roomName, startDate, endDate, groupName, leaderName, adults, groupId } = body;
   if (!roomName || !startDate || !endDate)
     throw new Error("roomName, startDate, endDate are required");
 
@@ -271,6 +277,7 @@ async function createReservation(tok, body) {
   form.append("guestZip",       "77780");
   form.append("paymentMethod",  "cash");
   form.append("notes",          `Group: ${groupName || ""} · Leader: ${leaderName || ""}`);
+  if (groupId) form.append("groupID", groupId);
 
   const res = await cbPost(tok, "/postReservation", form.toString());
   if (!res.success) {
@@ -299,6 +306,35 @@ async function cancelReservation(tok, reservationId) {
 
   const res = await cbPost(tok, "/putReservation", form);
   return { success: res.success, reservationId };
+}
+
+async function createGroup(tok, body) {
+  const { groupName, startDate, endDate } = body;
+  const form = new URLSearchParams({
+    propertyID: process.env.CLOUDBEDS_PROPERTY_ID,
+    groupName:  groupName || "Group",
+    startDate,
+    endDate,
+    status:     "confirmed",
+  }).toString();
+
+  const res = await cbPost(tok, "/postGroup", form);
+  console.log("[CB createGroup]", JSON.stringify(res).slice(0, 300));
+  if (!res.success) throw new Error("postGroup failed: " + JSON.stringify(res).slice(0, 200));
+  const groupId = res.groupID || res.data?.groupID || res.id;
+  return { groupId };
+}
+
+async function cancelGroup(tok, groupId) {
+  if (!groupId) throw new Error("groupId is required");
+  const form = new URLSearchParams({
+    propertyID: process.env.CLOUDBEDS_PROPERTY_ID,
+    groupID:    groupId,
+    status:     "canceled",
+  }).toString();
+  const res = await cbPost(tok, "/putGroup", form);
+  console.log("[CB cancelGroup]", JSON.stringify(res).slice(0, 300));
+  return { success: res.success, groupId };
 }
 
 async function updateReservationGuest(tok, body) {
