@@ -280,8 +280,10 @@ async function createReservation(tok, body) {
   form.append("rooms[0][roomTypeID]", roomTypeID);
   form.append("rooms[0][roomID]",     roomId);
   form.append("rooms[0][quantity]",   "1");
-  form.append("adults[0]",            String(adults || 2));
-  form.append("children[0]",          "0");
+  form.append("adults[0][roomTypeID]",   roomTypeID);
+  form.append("adults[0][quantity]",     String(adults || 2));
+  form.append("children[0][roomTypeID]", roomTypeID);
+  form.append("children[0][quantity]",   "0");
   form.append("guestFirstName", firstName);
   form.append("guestLastName",  lastName);
   form.append("guestEmail",     "groups@amansala.com");
