@@ -302,26 +302,27 @@ async function cancelReservation(tok, reservationId) {
 }
 
 async function updateReservationGuest(tok, body) {
-  const { reservationId, guestFirstName, guestLastName, guestEmail } = body;
+  const { reservationId, guestFirstName, guestLastName, guestEmail,
+          roomName, startDate, endDate, groupName, leaderName } = body;
   if (!reservationId) throw new Error("reservationId is required");
 
-  // Cloudbeds OAuth scope does not allow direct guest name edits via putReservation.
-  // Store guest info in the reservation notes instead.
-  const note = [
-    `Guest: ${guestFirstName || ""} ${guestLastName || ""}`.trim(),
-    guestEmail ? `Email: ${guestEmail}` : "",
-  ].filter(Boolean).join(" · ");
+  // putReservation does not support updating guest names — cancel + recreate instead
+  await cancelReservation(tok, reservationId);
 
-  const form = new URLSearchParams({
-    propertyID:    process.env.CLOUDBEDS_PROPERTY_ID,
-    reservationID: reservationId,
-    notes:         note,
-  }).toString();
+  const newRes = await createReservation(tok, {
+    roomName,
+    startDate,
+    endDate,
+    groupName:  `${guestFirstName || ""} ${guestLastName || ""}`.trim() || groupName,
+    leaderName: leaderName || "",
+    adults:     1,
+  });
 
-  const res = await cbPost(tok, "/putReservation", form);
-  console.log("[CB updateGuest] notes update:", JSON.stringify(res).slice(0, 200));
-  // Don't throw on failure — guest note is best-effort
-  return { success: !!res.success, reservationId, note };
+  return {
+    success:          true,
+    newReservationId: newRes.reservationId,
+    roomName,
+  };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
