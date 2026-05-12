@@ -318,6 +318,7 @@ async function updateReservationGuest(tok, body) {
 
   const form = new URLSearchParams({
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
+    reservationID:  reservationId,
     guestID:        guestId,
     guestFirstName: firstName,
     guestLastName:  retreatName,
