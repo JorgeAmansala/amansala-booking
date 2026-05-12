@@ -5,8 +5,8 @@ const { request } = require("https");
 let _token     = null; // { access_token, expires_at_ms }
 let _roomLookup = {};  // { roomName → Cloudbeds roomID }
 
-const CB_BASE   = "https://hotels.cloudbeds.com/api/v1.2";
-const CB_OAUTH  = "https://hotels.cloudbeds.com/api/v1.2/oauth";
+const CB_BASE  = "https://api.cloudbeds.com/api/v1.2";
+const CB_TOKEN = "https://api.cloudbeds.com/api/v1.2/access_token";
 
 // Preserve existing hub colors when mapping Cloudbeds room type names
 const COLOR_MAP = {
@@ -71,40 +71,36 @@ exports.handler = async (event) => {
   }
 };
 
-// ─── Auth: API key as Bearer token (v1.3 preferred method) ───────────────────
+// ─── Auth: OAuth2 with refresh_token → api_key ───────────────────────────────
 async function getToken() {
-  // Use cached token if still valid
   const now = Date.now();
   if (_token && _token.expires_at_ms > now + 60_000) return _token.access_token;
 
-  // API key path — use CLOUDBEDS_CLIENT_ID directly as Bearer token
-  const clientId = process.env.CLOUDBEDS_CLIENT_ID || "";
-  if (clientId) return clientId;
-
-  // OAuth2 refresh_token fallback
+  const clientId     = process.env.CLOUDBEDS_CLIENT_ID     || "";
+  const clientSecret = process.env.CLOUDBEDS_CLIENT_SECRET || "";
   const refreshToken = process.env.CLOUDBEDS_REFRESH_TOKEN || "";
-  if (!refreshToken) throw new Error("No Cloudbeds credentials configured.");
+
+  if (!refreshToken) throw new Error(
+    "CLOUDBEDS_REFRESH_TOKEN not set. Visit /.netlify/functions/cloudbeds-setup to authorize."
+  );
 
   const body = new URLSearchParams({
     grant_type:    "refresh_token",
     client_id:     clientId,
-    client_secret: process.env.CLOUDBEDS_CLIENT_SECRET || "",
+    client_secret: clientSecret,
     refresh_token: refreshToken,
   }).toString();
 
-  const res = await httpJSON(
-    "POST",
-    `${CB_OAUTH}/access_token`,
-    body,
-    { "Content-Type": "application/x-www-form-urlencoded" }
-  );
+  const res = await httpJSON("POST", CB_TOKEN, body, {
+    "Content-Type": "application/x-www-form-urlencoded",
+  });
 
   if (!res.access_token)
-    throw new Error("Cloudbeds token refresh failed: " + JSON.stringify(res));
+    throw new Error("Token refresh failed: " + JSON.stringify(res));
 
   _token = {
     access_token:  res.access_token,
-    expires_at_ms: now + (res.expires_in || 3600) * 1000,
+    expires_at_ms: now + (res.expires_in || 28800) * 1000,
   };
   return _token.access_token;
 }
@@ -246,16 +242,16 @@ function cbGet(tok, path, params = {}) {
     propertyID: process.env.CLOUDBEDS_PROPERTY_ID,
     ...params,
   }).toString();
-  return httpJSON("GET", `${CB_BASE}${path}?${qs}`, null, {
-    "x-api-key":   tok,
-    Authorization: `Bearer ${tok}`,
+  return httpJSON("GET", `${CB_BASE}/${path}?${qs}`, null, {
+    Authorization:  `Bearer ${tok}`,
+    "X-PROPERTY-ID": process.env.CLOUDBEDS_PROPERTY_ID,
   });
 }
 
 function cbPost(tok, path, formBody) {
-  return httpJSON("POST", `${CB_BASE}${path}`, formBody, {
-    "x-api-key":    tok,
+  return httpJSON("POST", `${CB_BASE}/${path}`, formBody, {
     Authorization:  `Bearer ${tok}`,
+    "X-PROPERTY-ID": process.env.CLOUDBEDS_PROPERTY_ID,
     "Content-Type": "application/x-www-form-urlencoded",
   });
 }
