@@ -314,25 +314,26 @@ async function updateReservationGuest(tok, body) {
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
   // If guestId not stored locally, find it via getReservations (which works with Groups & Events)
+  let _debugRes = null;
   if (!guestId && reservationId && startDate && endDate) {
-    let pageNumber = 1;
-    outer: while (pageNumber <= 5) {
-      const res = await cbGet(tok, "/getReservations", {
-        startDate, endDate, pageNumber, pageSize: 100,
-      });
-      for (const r of (res.data || [])) {
-        if (String(r.reservationID) === String(reservationId)) {
-          guestId = r.guestID || null;
-          break outer;
-        }
+    const res = await cbGet(tok, "/getReservations", {
+      startDate, endDate, pageNumber: 1, pageSize: 100,
+    });
+    _debugRes = {
+      total: res.total,
+      ids: (res.data || []).map(r => r.reservationID),
+      sample: (res.data || [])[0],
+    };
+    for (const r of (res.data || [])) {
+      if (String(r.reservationID) === String(reservationId)) {
+        guestId = r.guestID || null;
+        break;
       }
-      if ((res.data || []).length < 100) break;
-      pageNumber++;
     }
   }
 
   if (!guestId) {
-    return { success: false, error: "guestID not found — delete and re-create the block" };
+    return { success: false, error: "guestID not found — delete and re-create the block", debug: _debugRes };
   }
 
   const form = new URLSearchParams({
