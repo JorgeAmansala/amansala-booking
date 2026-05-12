@@ -41,6 +41,13 @@ exports.handler = async (event) => {
   const action = qs.action;
   const body   = event.body ? safeJSON(event.body) : {};
 
+  // Temporary debug: show raw Cloudbeds getRooms response
+  if (action === "debugRooms") {
+    const tok = await getToken();
+    const raw = await cbGet(tok, "/getRooms");
+    return ok(h, raw);
+  }
+
   // Temporary debug endpoint — remove after auth is confirmed working
   if (action === "debugToken") {
     const clientId     = process.env.CLOUDBEDS_CLIENT_ID     || "";
