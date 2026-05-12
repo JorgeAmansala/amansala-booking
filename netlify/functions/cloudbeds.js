@@ -300,38 +300,27 @@ async function cancelReservation(tok, reservationId) {
   }).toString();
 
   const res = await cbPost(tok, "/putReservation", form);
-  console.log("[CB cancelReservation] raw:", JSON.stringify(res).slice(0, 200));
   // Cloudbeds putReservation uses "status" (not "success") in its response
   return { success: !!(res.success || res.status), raw: res, reservationId };
 }
 
 async function updateReservationGuest(tok, body) {
   const { reservationId, guestFirstName, guestLastName,
-          roomName, startDate, endDate, groupName, leaderName } = body;
+          groupName, leaderName } = body;
   if (!reservationId) throw new Error("reservationId is required");
 
-  // Cancel old reservation (best-effort — may already be canceled)
-  const cancelRes = await cancelReservation(tok, reservationId);
-  console.log("[CB updateGuest] cancel result:", JSON.stringify(cancelRes));
+  const retreatName = (groupName || leaderName || "Amansala").trim();
+  const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
-  // Create new reservation: firstName = guest name, lastName = retreat name
-  const newRes = await createReservation(tok, {
-    roomName,
-    startDate,
-    endDate,
-    groupName:    groupName || "",
-    leaderName:   leaderName || "",
-    guestFullName: `${guestFirstName || ""} ${guestLastName || ""}`.trim(),
-    adults:       1,
-  });
+  const form = new URLSearchParams({
+    propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
+    reservationID:  reservationId,
+    guestFirstName: firstName,
+    guestLastName:  retreatName,
+  }).toString();
 
-  return {
-    success:          true,
-    cancelSuccess:    cancelRes.success,
-    cancelRaw:        cancelRes.raw,
-    newReservationId: newRes.reservationId,
-    roomName,
-  };
+  const res = await cbPost(tok, "/putReservation", form);
+  return { success: !!(res.success || res.status), raw: res, reservationId };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
