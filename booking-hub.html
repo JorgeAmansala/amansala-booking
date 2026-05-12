@@ -3191,6 +3191,7 @@ function blockSave(){
   }
 
   bk.blockedRooms=selected;
+  bk.cbReservationIds={};  // reset so re-blocked rooms get fresh Cloudbeds reservations
   saveAll();
   closeModal('blockModal');
   regRender();
