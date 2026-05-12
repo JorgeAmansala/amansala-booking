@@ -5,8 +5,8 @@ const { request } = require("https");
 let _token     = null; // { access_token, expires_at_ms }
 let _roomLookup = {};  // { roomName → Cloudbeds roomID }
 
-const CB_BASE  = "https://hotels.cloudbeds.com/api/v1.2";
-const CB_TOKEN = "https://hotels.cloudbeds.com/api/v1.2/access_token";
+const CB_BASE  = "https://api.cloudbeds.com/api/v1.3";
+const CB_TOKEN = "https://api.cloudbeds.com/api/v1.2/access_token";
 
 // Preserve existing hub colors when mapping Cloudbeds room type names
 const COLOR_MAP = {
@@ -134,8 +134,8 @@ async function getToken() {
 // ─── API actions ─────────────────────────────────────────────────────────────
 
 async function getRooms(tok) {
-  const res = await cbGet(tok, "/getPropertyRooms");
-  if (!res.success) throw new Error("getPropertyRooms failed: " + JSON.stringify(res));
+  const res = await cbGet(tok, "/getRooms");
+  if (!res.success) throw new Error("getRooms failed: " + JSON.stringify(res));
 
   const types  = {};
   const lookup = {};
