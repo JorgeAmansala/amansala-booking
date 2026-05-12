@@ -313,22 +313,19 @@ async function updateReservationGuest(tok, body) {
   const retreatName = (groupName || leaderName || "Amansala").trim();
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
-  console.log("[CB updateGuest] reservationId:", reservationId, "guestId:", guestId);
-
   // If guestId not stored locally, look it up from the reservation
+  let resInfoDebug = null;
   if (!guestId && reservationId) {
     const resInfo = await cbGet(tok, "/getReservation", { reservationID: reservationId });
-    console.log("[CB getReservation] raw:", JSON.stringify(resInfo).slice(0, 800));
-    // Try multiple known response shapes
+    resInfoDebug = resInfo;
     const d = resInfo.data || {};
     guestId = d.guestID || d.guest?.guestID
       || (Array.isArray(d) && d[0]?.guestID)
       || null;
-    console.log("[CB updateGuest] guestId resolved:", guestId);
   }
 
   if (!guestId) {
-    return { success: false, error: "guestID not found — delete and re-create the block" };
+    return { success: false, error: "guestID not found", debug: resInfoDebug };
   }
 
   const form = new URLSearchParams({
