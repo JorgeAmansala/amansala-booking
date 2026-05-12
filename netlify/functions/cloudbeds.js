@@ -286,7 +286,7 @@ async function createReservation(tok, body) {
   form.append("paymentMethod",  "cash");
   form.append("notes",          `Group: ${groupName || ""} · Leader: ${leaderName || ""}`);
 
-  const res = await cbPost(tok, "/postReservation", form);
+  const res = await cbPost(tok, "/postReservation", form.toString());
   if (!res.success) throw new Error("postReservation failed: " + JSON.stringify(res));
 
   return {
