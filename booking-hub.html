@@ -1613,9 +1613,8 @@ async function pushReservationsToCloudbeds(bk){
           groupName:bk.retreatName||bk.row||'',leaderName:bk.leaderName||'',adults:2
         })
       });
-      if(!res.ok)throw new Error(`HTTP ${res.status}`);
       const d=await res.json();
-      if(d.error)throw new Error(d.error);
+      if(!res.ok||d.error)throw new Error(d.error||`HTTP ${res.status}`);
       if(d.reservationId)bk.cbReservationIds[roomName]=d.reservationId;
     }catch(err){console.warn(`[CB block] ${roomName}: ${err.message}`);}
   }));
