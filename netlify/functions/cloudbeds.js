@@ -66,6 +66,9 @@ exports.handler = async (event) => {
       case "cancelReservation":
         return ok(h, await cancelReservation(tok, body.reservationId));
 
+      case "updateReservationGuest":
+        return ok(h, await updateReservationGuest(tok, body));
+
       default:
         return ok(h, { error: `Unknown action: ${action}` }, 400);
     }
@@ -295,6 +298,22 @@ async function cancelReservation(tok, reservationId) {
   }).toString();
 
   const res = await cbPost(tok, "/putReservation", form);
+  return { success: res.success, reservationId };
+}
+
+async function updateReservationGuest(tok, body) {
+  const { reservationId, guestFirstName, guestLastName, guestEmail } = body;
+  if (!reservationId) throw new Error("reservationId is required");
+
+  const form = new URLSearchParams({
+    propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
+    reservationID:  reservationId,
+    guestFirstName: guestFirstName || "",
+    guestLastName:  guestLastName  || "",
+  });
+  if (guestEmail) form.append("guestEmail", guestEmail);
+
+  const res = await cbPost(tok, "/putReservation", form.toString());
   return { success: res.success, reservationId };
 }
 

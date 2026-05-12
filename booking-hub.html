@@ -3278,6 +3278,15 @@ function gSave(){
   if(gEditRegId){const reg=regs.find(r=>r.id===gEditRegId);Object.assign(reg,{guests,customPrice,amountPaid,notes});}
   else regs.push({id:uid(),bookingId:regSelBk.id,room:gEditRoom,roomTypeId:gEditRtId,guests,customPrice,amountPaid,notes});
   saveAll();closeModal('guestModal');regRender();showToast(gEditRegId?'Updated.':'Guest added.');
+  // Update Cloudbeds reservation guest name for this room
+  const _cbResId=regSelBk&&regSelBk.cbReservationIds&&regSelBk.cbReservationIds[gEditRoom];
+  if(_cbResId&&guests[0]&&guests[0].name){
+    const _parts=guests[0].name.trim().split(/\s+/);
+    fetch(`${CLOUDBEDS_PROXY}?action=updateReservationGuest`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({reservationId:_cbResId,guestFirstName:_parts[0],guestLastName:_parts.slice(1).join(' ')||'',guestEmail:guests[0].email||''})
+    }).catch(e=>console.warn('[CB updateGuest]',e));
+  }
 }
 function gDelete(){if(!gEditRegId||!confirm('Remove guest?'))return;regs=regs.filter(r=>r.id!==gEditRegId);saveAll();closeModal('guestModal');regRender();showToast('Removed.');}
 
