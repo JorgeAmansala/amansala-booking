@@ -44,10 +44,16 @@ exports.handler = async (event) => {
   const action = qs.action;
   const body   = event.body ? safeJSON(event.body) : {};
 
-  // Temporary debug: show raw Cloudbeds getRooms response
+  // Temporary debug: show raw Cloudbeds responses
   if (action === "debugRooms") {
     const tok = await getToken();
     const raw = await cbGet(tok, "/getRooms");
+    return ok(h, raw);
+  }
+
+  if (action === "debugRates") {
+    const tok = await getToken();
+    const raw = await cbGet(tok, "/getRatePlans");
     return ok(h, raw);
   }
 
