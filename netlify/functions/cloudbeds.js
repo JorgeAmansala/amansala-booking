@@ -66,8 +66,10 @@ exports.handler = async (event) => {
       case "cancelReservation":
         return ok(h, await cancelReservation(tok, body.reservationId));
 
-      case "createGroup":
-        return ok(h, await createGroup(tok, body));
+      case "createGroup": {
+        const grResult = await createGroup(tok, body);
+        return ok(h, grResult); // never 502 — error is inside the body
+      }
 
       case "cancelGroup":
         return ok(h, await cancelGroup(tok, body.groupId));
@@ -319,8 +321,11 @@ async function createGroup(tok, body) {
   }).toString();
 
   const res = await cbPost(tok, "/postGroup", form);
-  console.log("[CB createGroup]", JSON.stringify(res).slice(0, 300));
-  if (!res.success) throw new Error("postGroup failed: " + JSON.stringify(res).slice(0, 200));
+  console.log("[CB createGroup] raw:", JSON.stringify(res).slice(0, 400));
+  if (!res.success) {
+    // Return error without throwing so caller can fall through to individual reservations
+    return { groupId: null, error: "postGroup failed: " + JSON.stringify(res).slice(0, 200) };
+  }
   const groupId = res.groupID || res.data?.groupID || res.id;
   return { groupId };
 }

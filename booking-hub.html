@@ -1605,6 +1605,7 @@ async function pushReservationsToCloudbeds(bk){
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({groupName:bk.retreatName||bk.row||'Group',startDate:bk.startDate,endDate:bk.endDate})
       }).then(r=>r.json());
+      if(gr.error)console.warn('[CB createGroup]',gr.error);
       if(gr.groupId)bk.cbGroupId=gr.groupId;
     }catch(e){console.warn('[CB createGroup]',e);}
   }
