@@ -300,7 +300,9 @@ async function cancelReservation(tok, reservationId) {
   }).toString();
 
   const res = await cbPost(tok, "/putReservation", form);
-  return { success: res.success, reservationId };
+  console.log("[CB cancelReservation] raw:", JSON.stringify(res).slice(0, 200));
+  // Cloudbeds putReservation uses "status" (not "success") in its response
+  return { success: !!(res.success || res.status), reservationId };
 }
 
 async function updateReservationGuest(tok, body) {
