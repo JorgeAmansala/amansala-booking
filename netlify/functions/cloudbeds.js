@@ -343,6 +343,8 @@ async function updateReservationGuest(tok, body) {
     guestFirstName: firstName,
     guestLastName:  retreatName,
     guestEmail:     body.guestEmail || "groups@amansala.com",
+    guestCountry:   "MX",
+    guestZip:       "77780",
   }).toString();
 
   const res = await cbPost(tok, "/putGuest", form);
