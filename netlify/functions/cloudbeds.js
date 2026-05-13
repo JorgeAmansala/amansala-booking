@@ -248,6 +248,7 @@ async function createReservation(tok, body) {
 
   // Auto-populate on cold start (Lambda loses module state between instances)
   if (!_roomLookup[roomName]) await getRooms(tok);
+  if (Object.keys(_ratePlanIds).length === 0) await getRates(tok);
 
   // Case-insensitive fallback (hub may store "1A" while Cloudbeds has "1a")
   const roomId = _roomLookup[roomName]
