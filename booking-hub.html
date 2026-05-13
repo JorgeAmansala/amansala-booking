@@ -3288,20 +3288,16 @@ function gSave(){
   saveAll();closeModal('guestModal');regRender();showToast(gEditRegId?'Updated.':'Guest added.');
   // Update Cloudbeds reservation: edit First Name = guest name, Last Name = retreat name
   const _cbResId=regSelBk&&regSelBk.cbReservationIds&&regSelBk.cbReservationIds[gEditRoom];
-  const _cbGuestId=regSelBk&&regSelBk.cbGuestIds&&regSelBk.cbGuestIds[gEditRoom];
-  if((_cbResId||_cbGuestId)&&guests[0]&&guests[0].name){
-    const _parts=guests[0].name.trim().split(/\s+/);
+  if(_cbResId&&guests[0]&&guests[0].name){
     fetch(`${CLOUDBEDS_PROXY}?action=updateReservationGuest`,{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        reservationId:_cbResId||'',
-        guestId:_cbGuestId||'',
-        guestFirstName:_parts[0],
-        guestLastName:_parts.slice(1).join(' ')||'',
+        reservationId:_cbResId,
+        guestFirstName:guests[0].name.trim(),
+        guestLastName:'',
         groupName:regSelBk.retreatName||regSelBk.row||'',
         leaderName:regSelBk.leaderName||'',
-        startDate:regSelBk.startDate||'',
-        endDate:regSelBk.endDate||'',
+        roomName:gEditRoom||'',
       })
     }).then(r=>r.json()).then(d=>console.log('[CB updateGuest]',JSON.stringify(d))).catch(e=>console.warn('[CB updateGuest]',e));
   }

@@ -316,44 +316,28 @@ async function cancelReservation(tok, reservationId) {
 
 async function updateReservationGuest(tok, body) {
   const { reservationId, guestFirstName, guestLastName,
-          groupName, leaderName, startDate, endDate } = body;
-  let { guestId } = body;
+          groupName, leaderName, roomName } = body;
 
   if (!reservationId) throw new Error("reservationId is required");
 
   const retreatName = (groupName || leaderName || "Amansala").trim();
-  const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
+  const guestName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim();
+  const room        = roomName || "";
 
-  // Look up guestID if not stored locally
-  if (!guestId && startDate && endDate) {
-    const res = await cbGet(tok, "/getReservations", {
-      startDate, endDate, pageNumber: 1, pageSize: 100,
-    });
-    for (const r of (res.data || [])) {
-      if (String(r.reservationID) === String(reservationId)) {
-        guestId = r.guestID || null;
-        break;
-      }
-    }
-  }
+  // putGuest creates duplicate guests; use putReservation notes instead
+  const noteLines = [];
+  if (guestName) noteLines.push(`Guest: ${guestName}`);
+  if (room)      noteLines.push(`Room: ${room}`);
+  if (retreatName) noteLines.push(`Group: ${retreatName}`);
 
-  if (!guestId) {
-    return { success: false, error: "guestID not found", reservationId };
-  }
-
-  // reservationID required; omit guestID so Cloudbeds updates the primary guest in-place
-  // (passing guestID causes it to create a new duplicate guest instead)
   const form = new URLSearchParams({
-    propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
-    reservationID:  reservationId,
-    guestFirstName: firstName,
-    guestLastName:  retreatName,
-    guestEmail:     "groups@amansala.com",
-    guestCountry:   "MX",
+    propertyID:    process.env.CLOUDBEDS_PROPERTY_ID,
+    reservationID: reservationId,
+    notes:         noteLines.join(" | "),
   }).toString();
 
-  const res = await cbPost(tok, "/putGuest", form);
-  return { success: !!(res.success || res.status), raw: res, reservationId, guestId };
+  const res = await cbPost(tok, "/putReservation", form);
+  return { success: !!(res.success || res.status), raw: res, reservationId };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
