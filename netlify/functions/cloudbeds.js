@@ -346,6 +346,8 @@ async function updateReservationGuest(tok, body) {
     guestFirstName: firstName,
     guestLastName:  retreatName,
     guestEmail,
+    guestCountry:   "MX",
+    guestZip:       "77780",
   }).toString();
 
   const res = await cbPost(tok, "/putGuest", form);
