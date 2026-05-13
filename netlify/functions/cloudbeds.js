@@ -181,7 +181,11 @@ async function getRates(tok) {
     }
   }
 
-  return { rates };
+  // Return a sample entry for debugging (remove once pricing is confirmed)
+  const _sample = (res.data || []).find(e =>
+    (e.ratePlanNamePublic || "").toLowerCase() === "yoga rate"
+  );
+  return { rates, _sample };
 }
 
 async function getAvailability(tok, start, end) {
