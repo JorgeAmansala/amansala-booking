@@ -309,11 +309,10 @@ async function cancelReservation(tok, reservationId) {
     status:        "canceled",
   }).toString();
 
-  // putReservation only exists in v1.1 on hotels.cloudbeds.com
-  const res = await httpJSON("POST", "https://hotels.cloudbeds.com/api/v1.1/putReservation", form, {
-    Authorization:   `Bearer ${tok}`,
-    "Content-Type":  "application/x-www-form-urlencoded",
-    "Content-Length": Buffer.byteLength(form),
+  // Try v1.3 with PUT method, fallback response includes raw for debugging
+  const res = await httpJSON("PUT", `${CB_BASE}/putReservation`, form, {
+    Authorization:  `Bearer ${tok}`,
+    "Content-Type": "application/x-www-form-urlencoded",
   });
   return { success: !!(res.success || res.status), raw: res, reservationId };
 }
