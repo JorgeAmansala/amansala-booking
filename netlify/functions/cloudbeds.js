@@ -6,7 +6,7 @@ let _token      = null; // { access_token, expires_at_ms }
 let _roomLookup = {};   // { roomName → Cloudbeds roomID }
 let _maxOcc     = {};   // { roomName → maxGuests }
 
-const CB_BASE  = "https://api.cloudbeds.com/api/v1.3";
+const CB_BASE  = "https://api.cloudbeds.com/api/v1.3"; // v2
 const CB_TOKEN = "https://api.cloudbeds.com/api/v1.2/access_token";
 
 // Colors keyed to actual Cloudbeds room type names (lowercase)
