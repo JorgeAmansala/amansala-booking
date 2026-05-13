@@ -1579,7 +1579,7 @@ async function syncRatesFromCloudbeds(){
   if(data.error)throw new Error(data.error);
   const rates=data.rates||{};
   roomTypes.forEach(rt=>{
-    const r=rates[rt.cbId];if(!r)return;
+    const r=rates[rt.id]||rates[rt.cbId];if(!r)return;
     if(r.price1)rt.price1=r.price1;if(r.price2)rt.price2=r.price2;
     if(r.price1_low)rt.price1_low=r.price1_low;if(r.price2_low)rt.price2_low=r.price2_low;
   });

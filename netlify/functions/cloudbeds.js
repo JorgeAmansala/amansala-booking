@@ -157,10 +157,10 @@ async function getRooms(tok) {
 }
 
 async function getRates(tok) {
-  // Request a 1-night window so roomRate = per-night rate
-  const today    = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const res = await cbGet(tok, "/getRatePlans", { startDate: today, endDate: tomorrow });
+  // Query 6 months ahead to capture seasonal rate plans
+  const start = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
+  const end   = new Date(Date.now() + 181 * 86400000).toISOString().slice(0, 10);
+  const res = await cbGet(tok, "/getRatePlans", { startDate: start, endDate: end });
   if (!res.success) throw new Error("getRatePlans failed: " + JSON.stringify(res));
 
   // v1.3: res.data is a flat array; only use the two yoga rate plans
