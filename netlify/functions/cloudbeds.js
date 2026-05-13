@@ -341,15 +341,12 @@ async function updateReservationGuest(tok, body) {
     return { success: false, error: "guestID not found", reservationId };
   }
 
+  // Update only name fields on the existing guest profile (no reservationID = no new guest created)
   const form = new URLSearchParams({
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
-    reservationID:  reservationId,
     guestID:        guestId,
     guestFirstName: firstName,
     guestLastName:  retreatName,
-    guestEmail:     `groups+${guestId}@amansala.com`,
-    guestCountry:   "MX",
-    guestZip:       "77780",
   }).toString();
 
   const res = await cbPost(tok, "/putGuest", form);
