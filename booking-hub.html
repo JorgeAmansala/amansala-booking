@@ -3291,26 +3291,26 @@ function gSave(){
   // Update Cloudbeds reservation: edit First Name = guest name, Last Name = retreat name
   const _cbResId=regSelBk&&regSelBk.cbReservationIds&&regSelBk.cbReservationIds[gEditRoom];
   if(_cbResId&&guests[0]&&guests[0].name){
-    const _oldGuestId=regSelBk.cbGuestIds&&regSelBk.cbGuestIds[gEditRoom]||'';
     fetch(`${CLOUDBEDS_PROXY}?action=updateReservationGuest`,{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         reservationId:_cbResId,
+        roomName:gEditRoom||'',
         startDate:regSelBk.startDate||'',
         endDate:regSelBk.endDate||'',
         guestFirstName:guests[0].name.trim(),
         groupName:regSelBk.retreatName||regSelBk.row||'',
         leaderName:regSelBk.leaderName||'',
-        oldGuestId:_oldGuestId,
+        adults:2,
       })
     }).then(r=>r.json()).then(d=>{
-      console.log('[CB assignGuest]',JSON.stringify(d));
-      if(d.newGuestId){
-        if(!regSelBk.cbGuestIds)regSelBk.cbGuestIds={};
-        regSelBk.cbGuestIds[gEditRoom]=d.newGuestId;
+      console.log('[CB updateGuest]',JSON.stringify(d));
+      if(d.reservationId){
+        regSelBk.cbReservationIds[gEditRoom]=d.reservationId;
+        if(d.guestId){if(!regSelBk.cbGuestIds)regSelBk.cbGuestIds={};regSelBk.cbGuestIds[gEditRoom]=d.guestId;}
         saveAll();
       }
-    }).catch(e=>console.warn('[CB assignGuest]',e));
+    }).catch(e=>console.warn('[CB updateGuest]',e));
   }
 }
 function gDelete(){if(!gEditRegId||!confirm('Remove guest?'))return;regs=regs.filter(r=>r.id!==gEditRegId);saveAll();closeModal('guestModal');regRender();showToast('Removed.');}

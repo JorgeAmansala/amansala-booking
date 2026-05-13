@@ -68,7 +68,7 @@ exports.handler = async (event) => {
         return ok(h, await cancelReservation(tok, body.reservationId));
 
       case "updateReservationGuest":
-        return ok(h, await assignGuestToRoom(tok, body));
+        return ok(h, await replaceReservation(tok, body));
 
       default:
         return ok(h, { error: `Unknown action: ${action}` }, 400);
@@ -329,70 +329,20 @@ async function cancelReservation(tok, reservationId) {
   return { success: !!(res.success || res.status), raw: res, reservationId };
 }
 
-async function assignGuestToRoom(tok, body) {
-  const { reservationId, startDate, endDate,
-          guestFirstName, groupName, leaderName, oldGuestId } = body;
+async function replaceReservation(tok, body) {
+  const { reservationId, roomName, startDate, endDate,
+          guestFirstName, groupName, leaderName, adults } = body;
 
-  if (!reservationId) throw new Error("reservationId is required");
-
-  const retreatName = (groupName || leaderName || "Amansala").trim();
-  const firstName   = (guestFirstName || "").trim() || retreatName;
-
-  // Step 1: Add new guest to the reservation (postGuest requires reservationID)
-  const guestForm = new URLSearchParams({
-    propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
-    reservationID:  reservationId,
-    guestFirstName: firstName,
-    guestLastName:  retreatName,
-    guestEmail:     "groups@amansala.com",
-    guestCountry:   "MX",
-  }).toString();
-  const guestRes = await cbPost(tok, "/postGuest", guestForm);
-  if (!guestRes.success) throw new Error("postGuest failed: " + JSON.stringify(guestRes));
-  const newGuestId = guestRes.guestID;
-  if (!newGuestId) throw new Error("postGuest returned no guestID");
-
-  // Step 2: Find reservationRoomID from the existing reservation
-  let reservationRoomID = null;
-  if (startDate && endDate) {
-    const resData = await cbGet(tok, "/getReservations", {
-      startDate, endDate, pageNumber: 1, pageSize: 100,
-    });
-    for (const r of (resData.data || [])) {
-      if (String(r.reservationID) === String(reservationId)) {
-        const rooms = [...(r.assigned || []), ...(r.unassigned || [])];
-        if (rooms[0]) reservationRoomID = rooms[0].reservationRoomID;
-        break;
-      }
-    }
-  }
-  if (!reservationRoomID) throw new Error("reservationRoomID not found for " + reservationId);
-
-  // Step 3: Assign new guest as main guest on the room
-  const assignForm = new URLSearchParams({
-    propertyID:    process.env.CLOUDBEDS_PROPERTY_ID,
-    reservationID: reservationId,
-    roomID:        reservationRoomID,
-    guestIDs:      newGuestId,
-    mainGuestId:   newGuestId,
-  }).toString();
-  const assignRes = await cbPost(tok, "/postGuestsToRoom", assignForm);
-  if (!assignRes.success) throw new Error("postGuestsToRoom failed: " + JSON.stringify(assignRes));
-
-  // Step 4: Remove old placeholder guest (now non-main, safe to remove)
-  let removeResult = null;
-  if (oldGuestId) {
-    const removeForm = new URLSearchParams({
-      propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
-      reservationID:  reservationId,
-      roomID:         reservationRoomID,
-      removeGuestIDs: String(oldGuestId),
-    }).toString();
-    removeResult = await cbPost(tok, "/postGuestsToRoom", removeForm)
-      .catch(e => ({ success: false, error: e.message }));
+  if (reservationId) {
+    await cancelReservation(tok, reservationId).catch(e => console.warn("[CB cancel]", e.message));
   }
 
-  return { success: true, newGuestId, reservationId, reservationRoomID, removeResult };
+  const guestFullName = (guestFirstName || "").trim() || undefined;
+
+  return createReservation(tok, {
+    roomName, startDate, endDate,
+    guestFullName, groupName, leaderName, adults,
+  });
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
