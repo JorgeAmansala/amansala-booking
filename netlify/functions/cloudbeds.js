@@ -157,35 +157,40 @@ async function getRooms(tok) {
 }
 
 async function getRates(tok) {
-  // Query 6 months ahead to capture seasonal rate plans
-  const start = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
-  const end   = new Date(Date.now() + 181 * 86400000).toISOString().slice(0, 10);
-  const res = await cbGet(tok, "/getRatePlans", { startDate: start, endDate: end });
-  if (!res.success) throw new Error("getRatePlans failed: " + JSON.stringify(res));
+  // Two seasons: Regular (Jan 15–May 31, Oct 2–Dec 20) and Low (Jun 1–Oct 1)
+  // Query with adults=1 for solo rate and adults=2 to derive sharing rate
+  const [reg1, reg2, low1, low2] = await Promise.all([
+    cbGet(tok, "/getRatePlans", { startDate: "2027-03-01", endDate: "2027-03-02", adults: 1 }),
+    cbGet(tok, "/getRatePlans", { startDate: "2027-03-01", endDate: "2027-03-02", adults: 2 }),
+    cbGet(tok, "/getRatePlans", { startDate: "2026-08-01", endDate: "2026-08-02", adults: 1 }),
+    cbGet(tok, "/getRatePlans", { startDate: "2026-08-01", endDate: "2026-08-02", adults: 2 }),
+  ]);
 
-  // v1.3: res.data is a flat array; only use the two yoga rate plans
   const rates = {};
-  for (const entry of (res.data || [])) {
-    const rtId    = entry.roomTypeID;
-    const planPub = (entry.ratePlanNamePublic || "").toLowerCase();
-    const rate    = Math.round(entry.roomRate || 0);
-    if (!rtId || !rate) continue;
-    if (!rates[rtId]) rates[rtId] = {};
 
-    if (planPub === "yoga rate") {
-      rates[rtId].price1 = rate;
-      // price2 (sharing) not in API — preserved from Settings
-    } else if (planPub === "yoga we take payment") {
-      rates[rtId].price1_low = rate;
-      // price2_low not in API — preserved from Settings
+  const apply = (data, key) => {
+    for (const entry of (data || [])) {
+      const rtId = entry.roomTypeID;
+      const rate = Math.round(entry.roomRate || 0);
+      if (!rtId || !rate) continue;
+      if (!rates[rtId]) rates[rtId] = {};
+      if (!rates[rtId][key] || rate > rates[rtId][key])
+        rates[rtId][key] = rate;
     }
-  }
+  };
 
-  // Return a sample entry for debugging (remove once pricing is confirmed)
-  const _sample = (res.data || []).find(e =>
-    (e.ratePlanNamePublic || "").toLowerCase() === "yoga rate"
-  );
-  return { rates, _sample };
+  apply(reg1.data, "price1");
+  apply(reg2.data, "_reg2");   // raw 2-adult rate — need to check if total or per-person
+  apply(low1.data, "price1_low");
+  apply(low2.data, "_low2");   // raw 2-adult rate
+
+  // Debug: return sample to verify adults=2 behavior
+  const _debug = {
+    reg1_sample: (reg1.data || []).find(e => e.roomTypeID === "667992"),
+    reg2_sample: (reg2.data || []).find(e => e.roomTypeID === "667992"),
+  };
+
+  return { rates, _debug };
 }
 
 async function getAvailability(tok, start, end) {
