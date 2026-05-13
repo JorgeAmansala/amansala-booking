@@ -316,47 +316,22 @@ async function cancelReservation(tok, reservationId) {
 
 async function updateReservationGuest(tok, body) {
   const { reservationId, guestFirstName, guestLastName,
-          groupName, leaderName, startDate, endDate } = body;
-  let { guestId } = body;
+          groupName, leaderName } = body;
+
+  if (!reservationId) throw new Error("reservationId is required");
 
   const retreatName = (groupName || leaderName || "Amansala").trim();
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
-  // If guestId not stored locally, find it via getReservations (which works with Groups & Events)
-  let _matchedRes = null;
-  if (!guestId && reservationId && startDate && endDate) {
-    const res = await cbGet(tok, "/getReservations", {
-      startDate, endDate, pageNumber: 1, pageSize: 100,
-    });
-    for (const r of (res.data || [])) {
-      if (String(r.reservationID) === String(reservationId)) {
-        _matchedRes = r;
-        guestId = r.guestID || null;
-        break;
-      }
-    }
-  }
-
-  if (!guestId) {
-    return { success: false, error: "guestID not found — delete and re-create the block", debug: _matchedRes };
-  }
-
-  // Use a unique email per guest to avoid profile conflicts in Cloudbeds
-  const guestEmail = body.guestEmail || `groups+${guestId}@amansala.com`;
-
   const form = new URLSearchParams({
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
     reservationID:  reservationId,
-    guestID:        guestId,
     guestFirstName: firstName,
     guestLastName:  retreatName,
-    guestEmail,
-    guestCountry:   "MX",
-    guestZip:       "77780",
   }).toString();
 
-  const res = await cbPost(tok, "/putGuest", form);
-  return { success: !!(res.success || res.status), raw: res, reservationId, guestId, matchedRes: _matchedRes };
+  const res = await cbPost(tok, "/putReservation", form);
+  return { success: !!(res.success || res.status), raw: res, reservationId };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
