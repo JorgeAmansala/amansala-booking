@@ -348,6 +348,7 @@ async function updateReservationGuest(tok, body) {
     reservationID:  reservationId,
     guestFirstName: firstName,
     guestLastName:  retreatName,
+    guestEmail:     "groups@amansala.com",
   }).toString();
 
   const res = await cbPost(tok, "/putGuest", form);
