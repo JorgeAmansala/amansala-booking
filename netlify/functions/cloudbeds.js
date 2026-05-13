@@ -309,8 +309,12 @@ async function cancelReservation(tok, reservationId) {
     status:        "canceled",
   }).toString();
 
-  const res = await cbPost(tok, "/putReservation", form);
-  // Cloudbeds putReservation uses "status" (not "success") in its response
+  // putReservation only exists in v1.1, not v1.3
+  const res = await httpJSON("POST", "https://api.cloudbeds.com/api/v1.1/putReservation", form, {
+    Authorization:   `Bearer ${tok}`,
+    "Content-Type":  "application/x-www-form-urlencoded",
+    "Content-Length": Buffer.byteLength(form),
+  });
   return { success: !!(res.success || res.status), raw: res, reservationId };
 }
 
