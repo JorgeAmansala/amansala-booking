@@ -341,10 +341,11 @@ async function updateReservationGuest(tok, body) {
     return { success: false, error: "guestID not found", reservationId };
   }
 
-  // Update only name fields on the existing guest profile (no reservationID = no new guest created)
+  // reservationID required; omit guestID so Cloudbeds updates the primary guest in-place
+  // (passing guestID causes it to create a new duplicate guest instead)
   const form = new URLSearchParams({
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
-    guestID:        guestId,
+    reservationID:  reservationId,
     guestFirstName: firstName,
     guestLastName:  retreatName,
   }).toString();
