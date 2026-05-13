@@ -316,22 +316,44 @@ async function cancelReservation(tok, reservationId) {
 
 async function updateReservationGuest(tok, body) {
   const { reservationId, guestFirstName, guestLastName,
-          groupName, leaderName } = body;
+          groupName, leaderName, startDate, endDate } = body;
+  let { guestId } = body;
 
   if (!reservationId) throw new Error("reservationId is required");
 
   const retreatName = (groupName || leaderName || "Amansala").trim();
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
+  // Look up guestID if not stored locally
+  if (!guestId && startDate && endDate) {
+    const res = await cbGet(tok, "/getReservations", {
+      startDate, endDate, pageNumber: 1, pageSize: 100,
+    });
+    for (const r of (res.data || [])) {
+      if (String(r.reservationID) === String(reservationId)) {
+        guestId = r.guestID || null;
+        break;
+      }
+    }
+  }
+
+  if (!guestId) {
+    return { success: false, error: "guestID not found", reservationId };
+  }
+
   const form = new URLSearchParams({
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
     reservationID:  reservationId,
+    guestID:        guestId,
     guestFirstName: firstName,
     guestLastName:  retreatName,
+    guestEmail:     `groups+${guestId}@amansala.com`,
+    guestCountry:   "MX",
+    guestZip:       "77780",
   }).toString();
 
-  const res = await cbPost(tok, "/putReservation", form);
-  return { success: !!(res.success || res.status), raw: res, reservationId };
+  const res = await cbPost(tok, "/putGuest", form);
+  return { success: !!(res.success || res.status), raw: res, reservationId, guestId };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
