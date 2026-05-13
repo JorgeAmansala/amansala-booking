@@ -380,6 +380,7 @@ async function assignGuestToRoom(tok, body) {
   if (!assignRes.success) throw new Error("postGuestsToRoom failed: " + JSON.stringify(assignRes));
 
   // Step 4: Remove old placeholder guest (now non-main, safe to remove)
+  let removeResult = null;
   if (oldGuestId) {
     const removeForm = new URLSearchParams({
       propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
@@ -387,11 +388,11 @@ async function assignGuestToRoom(tok, body) {
       roomID:         reservationRoomID,
       removeGuestIDs: String(oldGuestId),
     }).toString();
-    await cbPost(tok, "/postGuestsToRoom", removeForm)
-      .catch(e => console.warn("[CB removeOldGuest]", e.message));
+    removeResult = await cbPost(tok, "/postGuestsToRoom", removeForm)
+      .catch(e => ({ success: false, error: e.message }));
   }
 
-  return { success: true, newGuestId, reservationId, reservationRoomID };
+  return { success: true, newGuestId, reservationId, reservationRoomID, removeResult };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
