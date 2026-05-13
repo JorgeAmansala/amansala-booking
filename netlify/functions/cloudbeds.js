@@ -314,18 +314,14 @@ async function updateReservationGuest(tok, body) {
   const firstName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || retreatName;
 
   // If guestId not stored locally, find it via getReservations (which works with Groups & Events)
-  let _debugRes = null;
+  let _matchedRes = null;
   if (!guestId && reservationId && startDate && endDate) {
     const res = await cbGet(tok, "/getReservations", {
       startDate, endDate, pageNumber: 1, pageSize: 100,
     });
-    _debugRes = {
-      total: res.total,
-      ids: (res.data || []).map(r => r.reservationID),
-      sample: (res.data || [])[0],
-    };
     for (const r of (res.data || [])) {
       if (String(r.reservationID) === String(reservationId)) {
+        _matchedRes = r;
         guestId = r.guestID || null;
         break;
       }
@@ -333,7 +329,7 @@ async function updateReservationGuest(tok, body) {
   }
 
   if (!guestId) {
-    return { success: false, error: "guestID not found — delete and re-create the block", debug: _debugRes };
+    return { success: false, error: "guestID not found — delete and re-create the block", debug: _matchedRes };
   }
 
   // Use a unique email per guest to avoid profile conflicts in Cloudbeds
@@ -351,7 +347,7 @@ async function updateReservationGuest(tok, body) {
   }).toString();
 
   const res = await cbPost(tok, "/putGuest", form);
-  return { success: !!(res.success || res.status), raw: res, reservationId, guestId };
+  return { success: !!(res.success || res.status), raw: res, reservationId, guestId, matchedRes: _matchedRes };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
