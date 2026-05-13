@@ -177,9 +177,9 @@ async function getRates(tok) {
       if (!rates[rtId]) rates[rtId] = {};
       if (!rates[rtId][key] || rate > rates[rtId][key]) {
         rates[rtId][key] = rate;
-        if (season && entry.ratePlanID) {
+        if (season && entry.rateID) {
           if (!_ratePlanIds[rtId]) _ratePlanIds[rtId] = {};
-          _ratePlanIds[rtId][season] = entry.ratePlanID;
+          _ratePlanIds[rtId][season] = entry.rateID;
         }
       }
     }
@@ -292,7 +292,7 @@ async function createReservation(tok, body) {
   const ratePlanId = (_ratePlanIds[roomTypeID] || {})[season];
   if (ratePlanId) {
     form.append("ratePlanID[0][roomTypeID]", roomTypeID);
-    form.append("ratePlanID[0][ratePlanID]", ratePlanId);
+    form.append("ratePlanID[0][rateID]",     ratePlanId);
   }
 
   const res = await cbPost(tok, "/postReservation", form.toString());
