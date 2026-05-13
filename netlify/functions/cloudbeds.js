@@ -5,6 +5,7 @@ const { request } = require("https");
 let _token      = null; // { access_token, expires_at_ms }
 let _roomLookup = {};   // { roomName → Cloudbeds roomID }
 let _maxOcc     = {};   // { roomName → maxGuests }
+let _ratePlanIds = {};  // { roomTypeID → { regular: planId, low: planId } }
 
 const CB_BASE  = "https://api.cloudbeds.com/api/v1.3"; // v2
 const CB_TOKEN = "https://api.cloudbeds.com/api/v1.2/access_token";
@@ -168,29 +169,31 @@ async function getRates(tok) {
 
   const rates = {};
 
-  const apply = (data, key) => {
+  const apply = (data, key, season) => {
     for (const entry of (data || [])) {
       const rtId = entry.roomTypeID;
       const rate = Math.round(entry.roomRate || 0);
       if (!rtId || !rate) continue;
       if (!rates[rtId]) rates[rtId] = {};
-      if (!rates[rtId][key] || rate > rates[rtId][key])
+      if (!rates[rtId][key] || rate > rates[rtId][key]) {
         rates[rtId][key] = rate;
+        if (season && entry.ratePlanID) {
+          if (!_ratePlanIds[rtId]) _ratePlanIds[rtId] = {};
+          _ratePlanIds[rtId][season] = entry.ratePlanID;
+        }
+      }
     }
   };
 
-  apply(reg1.data, "price1");
-  apply(reg2.data, "_reg2");   // raw 2-adult rate — need to check if total or per-person
-  apply(low1.data, "price1_low");
-  apply(low2.data, "_low2");   // raw 2-adult rate
+  apply(reg1.data, "price1",     "regular");
+  apply(reg2.data, "_reg2",      null);
+  apply(low1.data, "price1_low", "low");
+  apply(low2.data, "_low2",      null);
 
-  // Debug: return sample to verify adults=2 behavior
-  const _debug = {
-    reg1_sample: (reg1.data || []).find(e => e.roomTypeID === "667992"),
-    reg2_sample: (reg2.data || []).find(e => e.roomTypeID === "667992"),
-  };
+  // Debug: show full sample entry to verify ratePlanID field
+  const _debug = { reg1_sample: (reg1.data || [])[0] };
 
-  return { rates, _debug };
+  return { rates, _ratePlanIds, _debug };
 }
 
 async function getAvailability(tok, start, end) {
@@ -282,6 +285,14 @@ async function createReservation(tok, body) {
   form.append("guestZip",       "77780");
   form.append("paymentMethod",  "cash");
   form.append("notes",          `Group: ${groupName || ""} · Leader: ${leaderName || ""}`);
+
+  // Select rate plan based on season; fall back to default if not cached
+  const season = isLowSeason(startDate) ? "low" : "regular";
+  const ratePlanId = (_ratePlanIds[roomTypeID] || {})[season];
+  if (ratePlanId) {
+    form.append("ratePlanID[0][roomTypeID]", roomTypeID);
+    form.append("ratePlanID[0][ratePlanID]", ratePlanId);
+  }
 
   const res = await cbPost(tok, "/postReservation", form.toString());
   if (!res.success) {
@@ -408,4 +419,12 @@ function ok(headers, data, statusCode = 200) {
 
 function safeJSON(s) {
   try { return JSON.parse(s); } catch { return {}; }
+}
+
+// Low season: Jun 1 – Oct 1
+function isLowSeason(dateStr) {
+  const d = new Date(dateStr);
+  const m = d.getUTCMonth() + 1; // 1-12
+  const day = d.getUTCDate();
+  return (m === 6 || m === 7 || m === 8 || m === 9 || (m === 10 && day === 1));
 }
