@@ -319,20 +319,23 @@ async function replaceReservation(tok, body) {
           guestFirstName, guestLastName, groupName, leaderName, adults } = body;
 
   // Cancel the existing reservation first
+  let cancelResult = null;
   if (reservationId) {
-    await cancelReservation(tok, reservationId).catch(() => {});
+    cancelResult = await cancelReservation(tok, reservationId).catch(e => ({ success: false, error: e.message }));
   }
 
   // Build full guest name from parts
   const guestFullName = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || undefined;
 
   // Create a new reservation with the actual guest name
-  return createReservation(tok, {
+  const created = await createReservation(tok, {
     roomName, startDate, endDate,
     guestFullName,
     groupName, leaderName,
     adults,
   });
+
+  return { ...created, cancelResult };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
