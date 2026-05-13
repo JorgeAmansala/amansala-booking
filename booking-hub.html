@@ -3293,13 +3293,23 @@ function gSave(){
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         reservationId:_cbResId,
+        roomName:gEditRoom||'',
+        startDate:regSelBk.startDate||'',
+        endDate:regSelBk.endDate||'',
         guestFirstName:guests[0].name.trim(),
         guestLastName:'',
         groupName:regSelBk.retreatName||regSelBk.row||'',
         leaderName:regSelBk.leaderName||'',
-        roomName:gEditRoom||'',
+        adults:2,
       })
-    }).then(r=>r.json()).then(d=>console.log('[CB updateGuest]',JSON.stringify(d))).catch(e=>console.warn('[CB updateGuest]',e));
+    }).then(r=>r.json()).then(d=>{
+      console.log('[CB replaceReservation]',JSON.stringify(d));
+      if(d.reservationId){
+        regSelBk.cbReservationIds[gEditRoom]=d.reservationId;
+        if(d.guestId){if(!regSelBk.cbGuestIds)regSelBk.cbGuestIds={};regSelBk.cbGuestIds[gEditRoom]=d.guestId;}
+        saveAll();
+      }
+    }).catch(e=>console.warn('[CB replaceReservation]',e));
   }
 }
 function gDelete(){if(!gEditRegId||!confirm('Remove guest?'))return;regs=regs.filter(r=>r.id!==gEditRegId);saveAll();closeModal('guestModal');regRender();showToast('Removed.');}

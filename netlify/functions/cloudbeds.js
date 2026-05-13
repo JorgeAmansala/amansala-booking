@@ -67,7 +67,7 @@ exports.handler = async (event) => {
         return ok(h, await cancelReservation(tok, body.reservationId));
 
       case "updateReservationGuest":
-        return ok(h, await updateReservationGuest(tok, body));
+        return ok(h, await replaceReservation(tok, body));
 
       default:
         return ok(h, { error: `Unknown action: ${action}` }, 400);
@@ -314,30 +314,25 @@ async function cancelReservation(tok, reservationId) {
   return { success: !!(res.success || res.status), raw: res, reservationId };
 }
 
-async function updateReservationGuest(tok, body) {
-  const { reservationId, guestFirstName, guestLastName,
-          groupName, leaderName, roomName } = body;
+async function replaceReservation(tok, body) {
+  const { reservationId, roomName, startDate, endDate,
+          guestFirstName, guestLastName, groupName, leaderName, adults } = body;
 
-  if (!reservationId) throw new Error("reservationId is required");
+  // Cancel the existing reservation first
+  if (reservationId) {
+    await cancelReservation(tok, reservationId).catch(() => {});
+  }
 
-  const retreatName = (groupName || leaderName || "Amansala").trim();
-  const guestName   = `${guestFirstName || ""} ${guestLastName || ""}`.trim();
-  const room        = roomName || "";
+  // Build full guest name from parts
+  const guestFullName = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || undefined;
 
-  // putGuest creates duplicate guests; use putReservation notes instead
-  const noteLines = [];
-  if (guestName) noteLines.push(`Guest: ${guestName}`);
-  if (room)      noteLines.push(`Room: ${room}`);
-  if (retreatName) noteLines.push(`Group: ${retreatName}`);
-
-  const form = new URLSearchParams({
-    propertyID:    process.env.CLOUDBEDS_PROPERTY_ID,
-    reservationID: reservationId,
-    notes:         noteLines.join(" | "),
-  }).toString();
-
-  const res = await cbPost(tok, "/putReservation", form);
-  return { success: !!(res.success || res.status), raw: res, reservationId };
+  // Create a new reservation with the actual guest name
+  return createReservation(tok, {
+    roomName, startDate, endDate,
+    guestFullName,
+    groupName, leaderName,
+    adults,
+  });
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
