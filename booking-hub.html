@@ -1425,6 +1425,12 @@ let cbLastSync=null;
 let cbRoomLookup={};  // { roomName → Cloudbeds roomID }
 let cbAvailCache={};  // { roomName → ['YYYY-MM-DD', ...] }
 
+// Low season: Jun 1 – Oct 1 (mirrors Lambda logic)
+function cbIsLowSeason(dateStr){
+  const d=new Date(dateStr),m=d.getUTCMonth()+1,day=d.getUTCDate();
+  return(m>=6&&m<=9)||(m===10&&day===1);
+}
+
 const STATUS={
   requested:      {label:'Requested Dates', bg:'#f3f4f6',border:'#9ca3af',text:'#374151',dash:true},
   contract_sent:  {label:'Contract Sent',   bg:'#fef9c3',border:'#fcd34d',text:'#854d0e',dash:true},
@@ -1543,7 +1549,6 @@ async function syncAllFromCloudbeds(){
   cbSyncing=true;setSyncStatus('syncing');
   try{
     await syncRoomTypesFromCloudbeds();
-    await syncRatesFromCloudbeds();
     cbLastSync=new Date().toISOString();
     setSyncStatus('ok');
     const activeTab=document.querySelector('.tab-btn.active');
@@ -1578,21 +1583,6 @@ async function syncRoomTypesFromCloudbeds(){
   if(document.getElementById('rcBody'))rcBuild();
 }
 
-async function syncRatesFromCloudbeds(){
-  const res=await fetch(`${CLOUDBEDS_PROXY}?action=getRates`);
-  if(!res.ok)throw new Error(`getRates HTTP ${res.status}`);
-  const data=await res.json();
-  if(data.error)throw new Error(data.error);
-  console.log('[CB getRates debug]',JSON.stringify(data._debug));
-  console.log('[CB ratePlanIds]',JSON.stringify(data._ratePlanIds));
-  const rates=data.rates||{};
-  roomTypes.forEach(rt=>{
-    const r=rates[rt.id]||rates[rt.cbId];if(!r)return;
-    if(r.price1)rt.price1=r.price1;if(r.price2)rt.price2=r.price2;
-    if(r.price1_low)rt.price1_low=r.price1_low;if(r.price2_low)rt.price2_low=r.price2_low;
-  });
-  saveAll();
-}
 
 async function syncAvailabilityFromCloudbeds(start,end){
   const res=await fetch(`${CLOUDBEDS_PROXY}?action=getAvailability&start=${start}&end=${end}`);
@@ -1614,11 +1604,17 @@ async function pushReservationsToCloudbeds(bk){
   for(const roomName of bk.blockedRooms){
     if(bk.cbReservationIds[roomName])continue;
     try{
+      // Look up the room type to get the hub's configured daily rate
+      const rt=roomTypes.find(t=>(t.rooms||[]).includes(roomName));
+      const low=cbIsLowSeason(bk.startDate);
+      const dailyRate=rt?(low?(rt.price2_low||rt.price2||rt.price1_low||rt.price1||0):(rt.price2||rt.price1||0)):0;
+
       const res=await fetch(`${CLOUDBEDS_PROXY}?action=createReservation`,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           roomName,startDate:bk.startDate,endDate:bk.endDate,
-          groupName:bk.retreatName||bk.row||'',leaderName:bk.leaderName||'',adults:2
+          groupName:bk.retreatName||bk.row||'',leaderName:bk.leaderName||'',adults:2,
+          dailyRate:dailyRate||undefined
         })
       });
       const d=await res.json();
@@ -3291,6 +3287,9 @@ function gSave(){
   // Update Cloudbeds reservation: edit First Name = guest name, Last Name = retreat name
   const _cbResId=regSelBk&&regSelBk.cbReservationIds&&regSelBk.cbReservationIds[gEditRoom];
   if(_cbResId&&guests[0]&&guests[0].name){
+    const _rt=roomTypes.find(t=>(t.rooms||[]).includes(gEditRoom||''));
+    const _low=cbIsLowSeason(regSelBk.startDate||'');
+    const _dr=_rt?(_low?(_rt.price2_low||_rt.price2||_rt.price1_low||_rt.price1||0):(_rt.price2||_rt.price1||0)):0;
     fetch(`${CLOUDBEDS_PROXY}?action=updateReservationGuest`,{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -3302,6 +3301,7 @@ function gSave(){
         groupName:regSelBk.retreatName||regSelBk.row||'',
         leaderName:regSelBk.leaderName||'',
         adults:2,
+        dailyRate:_dr||undefined,
       })
     }).then(r=>r.json()).then(d=>{
       console.log('[CB updateGuest]',JSON.stringify(d));

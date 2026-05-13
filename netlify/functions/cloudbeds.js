@@ -5,7 +5,6 @@ const { request } = require("https");
 let _token      = null; // { access_token, expires_at_ms }
 let _roomLookup = {};   // { roomName → Cloudbeds roomID }
 let _maxOcc     = {};   // { roomName → maxGuests }
-let _ratePlanIds = {};  // { roomTypeID → { regular: planId, low: planId } }
 
 const CB_BASE  = "https://api.cloudbeds.com/api/v1.3"; // v2
 const CB_TOKEN = "https://api.cloudbeds.com/api/v1.2/access_token";
@@ -242,13 +241,12 @@ async function getAvailability(tok, start, end) {
 }
 
 async function createReservation(tok, body) {
-  const { roomName, startDate, endDate, groupName, leaderName, adults, guestFullName } = body;
+  const { roomName, startDate, endDate, groupName, leaderName, adults, guestFullName, dailyRate } = body;
   if (!roomName || !startDate || !endDate)
     throw new Error("roomName, startDate, endDate are required");
 
-  // Auto-populate on cold start (Lambda loses module state between instances)
+  // Auto-populate room lookup on cold start
   if (!_roomLookup[roomName]) await getRooms(tok);
-  if (Object.keys(_ratePlanIds).length === 0) await getRates(tok);
 
   // Case-insensitive fallback (hub may store "1A" while Cloudbeds has "1a")
   const roomId = _roomLookup[roomName]
@@ -287,17 +285,22 @@ async function createReservation(tok, body) {
   form.append("paymentMethod",  "cash");
   form.append("notes",          `Group: ${groupName || ""} · Leader: ${leaderName || ""}`);
 
-  // Select rate plan based on season; fall back to default if not cached
-  const season = isLowSeason(startDate) ? "low" : "regular";
-  const ratePlanId = (_ratePlanIds[roomTypeID] || {})[season];
-  if (ratePlanId) {
-    form.append("ratePlanID[0][roomTypeID]", roomTypeID);
-    form.append("ratePlanID[0][rateID]",     ratePlanId);
+  // Apply hub rates as custom daily rates for each night of the stay
+  if (dailyRate && dailyRate > 0) {
+    const DAY_MS = 86400000;
+    const sMs = new Date(startDate).getTime();
+    const eMs = new Date(endDate).getTime();
+    let i = 0;
+    for (let ms = sMs; ms < eMs; ms += DAY_MS, i++) {
+      const d = new Date(ms).toISOString().slice(0, 10);
+      form.append(`customDailyRates[${i}][date]`,       d);
+      form.append(`customDailyRates[${i}][roomTypeID]`, roomTypeID);
+      form.append(`customDailyRates[${i}][amount]`,     String(dailyRate));
+    }
   }
 
   const res = await cbPost(tok, "/postReservation", form.toString());
   if (!res.success) {
-    // Skip gracefully if no rate is configured for this room type yet
     if (res.message && res.message.includes("No rate found")) {
       console.warn(`[CB] No rate for room ${roomName} — skipping Cloudbeds reservation`);
       return { reservationId: null, roomName, skipped: true };
@@ -331,7 +334,7 @@ async function cancelReservation(tok, reservationId) {
 
 async function replaceReservation(tok, body) {
   const { reservationId, roomName, startDate, endDate,
-          guestFirstName, groupName, leaderName, adults } = body;
+          guestFirstName, groupName, leaderName, adults, dailyRate } = body;
 
   if (reservationId) {
     await cancelReservation(tok, reservationId).catch(e => console.warn("[CB cancel]", e.message));
@@ -341,7 +344,7 @@ async function replaceReservation(tok, body) {
 
   return createReservation(tok, {
     roomName, startDate, endDate,
-    guestFullName, groupName, leaderName, adults,
+    guestFullName, groupName, leaderName, adults, dailyRate,
   });
 }
 
