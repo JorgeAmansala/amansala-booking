@@ -1583,6 +1583,8 @@ async function syncRatesFromCloudbeds(){
   if(!res.ok)throw new Error(`getRates HTTP ${res.status}`);
   const data=await res.json();
   if(data.error)throw new Error(data.error);
+  console.log('[CB getRates debug]',JSON.stringify(data._debug));
+  console.log('[CB ratePlanIds]',JSON.stringify(data._ratePlanIds));
   const rates=data.rates||{};
   roomTypes.forEach(rt=>{
     const r=rates[rt.id]||rates[rt.cbId];if(!r)return;
