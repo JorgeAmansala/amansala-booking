@@ -338,9 +338,10 @@ async function assignGuestToRoom(tok, body) {
   const retreatName = (groupName || leaderName || "Amansala").trim();
   const firstName   = (guestFirstName || "").trim() || retreatName;
 
-  // Step 1: Create new guest profile with real name
+  // Step 1: Add new guest to the reservation (postGuest requires reservationID)
   const guestForm = new URLSearchParams({
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
+    reservationID:  reservationId,
     guestFirstName: firstName,
     guestLastName:  retreatName,
     guestEmail:     "groups@amansala.com",
