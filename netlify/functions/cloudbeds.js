@@ -336,15 +336,16 @@ async function updateReservationGuest(tok, body) {
     return { success: false, error: "guestID not found — delete and re-create the block", debug: _debugRes };
   }
 
+  // Use a unique email per guest to avoid profile conflicts in Cloudbeds
+  const guestEmail = body.guestEmail || `groups+${guestId}@amansala.com`;
+
   const form = new URLSearchParams({
     propertyID:     process.env.CLOUDBEDS_PROPERTY_ID,
     reservationID:  reservationId,
     guestID:        guestId,
     guestFirstName: firstName,
     guestLastName:  retreatName,
-    guestEmail:     body.guestEmail || "groups@amansala.com",
-    guestCountry:   "MX",
-    guestZip:       "77780",
+    guestEmail,
   }).toString();
 
   const res = await cbPost(tok, "/putGuest", form);
