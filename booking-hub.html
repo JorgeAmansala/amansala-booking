@@ -1563,10 +1563,16 @@ async function syncRoomTypesFromCloudbeds(){
   const data=await res.json();
   if(data.error)throw new Error(data.error);
   if(data.roomLookup)cbRoomLookup=data.roomLookup;
-  // Cloudbeds is the source of truth — replace local room types entirely
+  // Cloudbeds is the source of truth for rooms/structure; preserve manually-set prices
   if(data.roomTypes&&data.roomTypes.length){
+    const priceMap={};
+    roomTypes.forEach(rt=>{priceMap[rt.id]={price1:rt.price1,price2:rt.price2,price1_low:rt.price1_low,price2_low:rt.price2_low};});
     roomTypes.length=0;
-    data.roomTypes.forEach(rt=>roomTypes.push({...rt}));
+    data.roomTypes.forEach(rt=>{
+      const p=priceMap[rt.id];
+      if(p){if(p.price1)rt.price1=p.price1;if(p.price2)rt.price2=p.price2;if(p.price1_low)rt.price1_low=p.price1_low;if(p.price2_low)rt.price2_low=p.price2_low;}
+      roomTypes.push({...rt});
+    });
   }
   saveAll();
   if(document.getElementById('rcBody'))rcBuild();

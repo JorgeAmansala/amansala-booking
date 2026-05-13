@@ -174,10 +174,10 @@ async function getRates(tok) {
 
     if (planPub === "yoga rate") {
       rates[rtId].price1 = rate;
-      rates[rtId].price2 = rate;
+      // price2 (sharing) not in API — preserved from Settings
     } else if (planPub === "yoga we take payment") {
       rates[rtId].price1_low = rate;
-      rates[rtId].price2_low = rate;
+      // price2_low not in API — preserved from Settings
     }
   }
 
